@@ -6,6 +6,14 @@ Based on: *Massimiliano Di Ventra — MemComputing: Fundamentals and Application
 
 ---
 
+## Live Demo
+
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://digitalmemcomputing-jl3twekdcwjdkgx3xbbcu3.streamlit.app)
+
+👉 **[Launch interactive app](https://digitalmemcomputing-jl3twekdcwjdkgx3xbbcu3.streamlit.app)**
+
+---
+
 ## Screenshots
 
 ### Interactive 3D surface — drag to rotate, scroll to zoom
