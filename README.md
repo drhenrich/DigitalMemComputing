@@ -6,6 +6,16 @@ Based on: *Massimiliano Di Ventra — MemComputing: Fundamentals and Application
 
 ---
 
+## Screenshots
+
+### Interactive 3D surface — drag to rotate, scroll to zoom
+![3D Ω surface with instanton path](screenshot_3d.png)
+
+### DMM memory dynamics
+![Memory variables and constraint norm](screenshot_memory.png)
+
+---
+
 ## Physics
 
 The simulation solves the **restricted 3-body problem** (Earth + Moon as primaries, infinitesimal test mass) in the co-rotating frame. The DMM emulator uses memory variables as dynamic Lagrange multipliers to drive the system toward the equilibrium condition ∇Ω = 0.
