@@ -1,5 +1,9 @@
 # Digital MemComputing — Lagrange Point Discovery
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://digitalmemcomputing-msoefuhpx3swcae4pzs2xr.streamlit.app)
+
+👉 **[Launch live app](https://digitalmemcomputing-msoefuhpx3swcae4pzs2xr.streamlit.app)**
+
 A Python implementation of a **Digital MemComputing Machine (DMM)** that discovers all five Lagrange points of the Earth–Moon restricted three-body problem — **without prior knowledge** of how many solutions exist or where they are.
 
 Based on: *Massimiliano Di Ventra — MemComputing: Fundamentals and Applications of Time Non-Locality* (Oxford University Press, 2022).
