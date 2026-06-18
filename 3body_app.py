@@ -1,335 +1,283 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import streamlit as st
 import plotly.graph_objects as go
+from scipy.optimize import brentq
 
-st.set_page_config(page_title="DMM · 3-Body L4 Finder", layout="wide")
+st.set_page_config(page_title="DMM · All Lagrange Points", layout="wide")
 
-st.title("Digital MemComputing — Restricted 3-Body L4 Lagrange Point")
+st.title("Digital MemComputing — All 5 Lagrange Points")
 st.markdown(
-    "A DMM emulator finds L4 by following the rotating-frame equations of motion "
-    "with memory-amplified potential force and Coriolis stabilisation."
+    "A DMM emulator finds any of the 5 Lagrange points in the Earth-Moon rotating frame "
+    "by treating **∇Ω = 0** as the clause to satisfy."
 )
+
+# ── Analytic L-point positions ─────────────────────────────────────────────────
+def lagrange_points(mu):
+    x1, x2 = -mu, 1 - mu
+    def gx(x):
+        r1 = abs(x - x1) + 1e-12
+        r2 = abs(x - x2) + 1e-12
+        return x - (1-mu)*(x-x1)/r1**3 - mu*(x-x2)/r2**3
+    L1 = np.array([brentq(gx, x1+0.01, x2-0.01), 0.0])
+    L2 = np.array([brentq(gx, x2+1e-4,  x2+1.0),  0.0])
+    L3 = np.array([brentq(gx, x1-2.0,   x1-1e-4), 0.0])
+    L4 = np.array([0.5-mu,  np.sqrt(3)/2])
+    L5 = np.array([0.5-mu, -np.sqrt(3)/2])
+    return {"L1": L1, "L2": L2, "L3": L3, "L4": L4, "L5": L5}
+
+DEFAULT_STARTS = {
+    "L1": ( 0.05,  0.02),
+    "L2": ( 0.08,  0.02),
+    "L3": (-0.08,  0.02),
+    "L4": ( 0.20, -0.30),
+    "L5": ( 0.20,  0.30),
+}
+DEFAULT_GAMMA = {"L1": 0.8, "L2": 0.8, "L3": 0.8, "L4": 0.1, "L5": 0.1}
+LP_STYLE = {
+    "L1": ("cyan",    "cross",   "L1"),
+    "L2": ("lime",    "cross",   "L2"),
+    "L3": ("magenta", "cross",   "L3"),
+    "L4": ("gold",    "diamond", "L4"),
+    "L5": ("orange",  "diamond", "L5"),
+}
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.header("System parameters")
-    mu = st.slider("μ  (Moon/total mass ratio)", 0.001, 0.038, 0.0121, 0.0001,
-                   help="Routh's criterion: μ < 0.0385 for L4/L5 stability")
+    st.header("Target")
+    target = st.radio("Lagrange point", ["L1","L2","L3","L4","L5"],
+                      index=3, horizontal=True)
+
+    st.header("System")
+    mu = st.slider("μ  (Moon/total mass)", 0.001, 0.038, 0.0121, 0.0001,
+                   help="Routh: L4/L5 stable only for μ < 0.0385")
+
+    Lpts = lagrange_points(mu)
+    L_target = Lpts[target]
+    st.info(f"**{target} analytic:** ({L_target[0]:.5f}, {L_target[1]:.5f})")
 
     st.header("Starting position")
-    st.caption("Offset from L4 analytic position")
-    dx = st.slider("Δx offset", -0.4, 0.4,  0.20, 0.01)
-    dy = st.slider("Δy offset", -0.5, 0.1, -0.30, 0.01)
+    st.caption(f"Offset from {target}")
+    def_dx, def_dy = DEFAULT_STARTS[target]
+    dx = st.slider("Δx offset", -0.5, 0.5, def_dx, 0.01)
+    dy = st.slider("Δy offset", -0.5, 0.5, def_dy, 0.01)
 
     st.header("DMM memory")
-    alpha   = st.slider("α  (short-term decay)",  0.01, 0.30, 0.05, 0.01)
-    beta    = st.slider("β  (long-term growth)",  0.0001, 0.005, 0.001, 0.0001)
-    mem_cap = st.slider("long_mem cap",            1.0, 20.0, 5.0, 0.5)
+    alpha   = st.slider("α  (short-term decay)", 0.01, 0.30, 0.05, 0.01)
+    beta    = st.slider("β  (long-term growth)", 0.0001, 0.005, 0.001, 0.0001)
+    mem_cap = st.slider("long_mem cap",           1.0, 20.0, 5.0, 0.5)
 
     st.header("Integration")
-    gamma     = st.slider("γ  (damping)", 0.01, 0.50, 0.10, 0.01,
-                          help="Must be ≪ 2·ω_libration ≈ 1.7 — too high → overdamped, misses L4")
-    dt        = st.slider("Δt",           0.001, 0.02, 0.01, 0.001)
+    gamma = st.slider("γ  (damping)", 0.01, 2.0, DEFAULT_GAMMA[target], 0.01,
+                      help="L4/L5: ~0.1 (underdamped, Coriolis stabilises). "
+                           "L1/L2/L3: ~0.8 (overdamped, suppresses Coriolis drift).")
+    dt        = st.slider("Δt", 0.001, 0.02, 0.01, 0.001)
     max_steps = st.select_slider("Max steps",
-                                 [50_000, 100_000, 200_000, 500_000], 200_000)
+                                 [50_000,100_000,200_000,500_000], 200_000)
 
     st.header("Display")
-    show_2d     = st.checkbox("Also show 2D contour view", value=False)
-    show_memory = st.checkbox("Memory dynamics panel",      value=True)
-    omega_clip  = st.slider("Ω ceiling (clip deep wells)", 1.5, 5.0, 3.2, 0.1,
-                             help="Clips the deep gravity wells so the surface shape is visible")
+    show_all  = st.checkbox("Show all 5 L-points", value=True)
+    show_mem  = st.checkbox("Memory dynamics panel", value=True)
+    om_ceil   = st.slider("Ω ceiling (clip wells)", 1.5, 5.0, 3.2, 0.1)
 
-    run = st.button("▶  Run simulation", type="primary", use_container_width=True)
+    run = st.button(f"▶  Find {target}", type="primary", use_container_width=True)
 
 # ── Simulation ─────────────────────────────────────────────────────────────────
-def run_simulation(mu, dx, dy, alpha, beta, mem_cap, gamma, dt, max_steps):
-    x1, x2 = -mu, 1 - mu
-    L4  = np.array([0.5 - mu, np.sqrt(3) / 2])
+def simulate(mu, start, alpha, beta, mem_cap, gamma, dt, max_steps):
+    x1, x2 = -mu, 1-mu
     eps = 1e-8
-
-    pos       = L4 + np.array([dx, dy])
-    vel       = np.array([0.0, 0.0])
-    short_mem = 0.0
-    long_mem  = 1.0
-
-    traj, short_log, long_log, grad_log = [], [], [], []
-    converged_at = None
-
+    pos = np.array(start, dtype=float)
+    vel = np.zeros(2)
+    sm, lm = 0.0, 1.0
+    traj, sl, ll, gl = [], [], [], []
+    conv = None
     for step in range(max_steps):
-        r1 = np.sqrt((pos[0] - x1)**2 + pos[1]**2) + eps
-        r2 = np.sqrt((pos[0] - x2)**2 + pos[1]**2) + eps
-
+        r1 = np.sqrt((pos[0]-x1)**2 + pos[1]**2) + eps
+        r2 = np.sqrt((pos[0]-x2)**2 + pos[1]**2) + eps
         gx = pos[0] - (1-mu)*(pos[0]-x1)/r1**3 - mu*(pos[0]-x2)/r2**3
         gy = pos[1] - (1-mu)* pos[1]      /r1**3 - mu* pos[1]      /r2**3
-        grad_norm = np.sqrt(gx*gx + gy*gy)
-
-        short_mem = (1 - alpha)*short_mem + alpha*grad_norm
-        long_mem  = min(long_mem + beta*short_mem*dt, mem_cap)
-
-        accel = (np.array([2.0*vel[1], -2.0*vel[0]])
-                 - np.array([gx, gy]) * long_mem
+        gn = np.sqrt(gx*gx + gy*gy)
+        sm = (1-alpha)*sm + alpha*gn
+        lm = min(lm + beta*sm*dt, mem_cap)
+        accel = (np.array([2*vel[1], -2*vel[0]])
+                 - np.array([gx, gy]) * lm
                  - gamma * vel)
-
         vel += accel * dt
         pos  = pos + vel * dt
-
         if step % 10 == 0:
-            traj.append(pos.copy())
-            short_log.append(short_mem)
-            long_log.append(long_mem)
-            grad_log.append(grad_norm)
-
-        if grad_norm < 1e-6:
-            converged_at = step
-            traj.append(pos.copy())
-            short_log.append(short_mem); long_log.append(long_mem); grad_log.append(grad_norm)
+            traj.append(pos.copy()); sl.append(sm); ll.append(lm); gl.append(gn)
+        if gn < 1e-6:
+            conv = step
+            traj.append(pos.copy()); sl.append(sm); ll.append(lm); gl.append(gn)
             break
-
-        if not np.isfinite(pos).all() or np.linalg.norm(pos) > 10:
+        if not np.isfinite(pos).all() or np.linalg.norm(pos) > 15:
             break
+    return np.array(traj), np.array(sl), np.array(ll), np.array(gl), conv, pos, gn
 
-    return (np.array(traj), np.array(short_log), np.array(long_log),
-            np.array(grad_log), L4, converged_at, pos, grad_norm,
-            np.array([-mu, 1-mu]))
-
-# ── Potential grid (cached) ────────────────────────────────────────────────────
+# ── Potential grid ─────────────────────────────────────────────────────────────
 @st.cache_data
-def potential_grid(mu, nx=120, ny=100):
-    x1, x2 = -mu, 1 - mu
-    xs = np.linspace(-0.6, 1.3, nx)
-    ys = np.linspace(-0.4, 1.2, ny)
+def potential_grid(mu, nx=130, ny=110):
+    x1, x2 = -mu, 1-mu
+    xs = np.linspace(-1.6, 1.5, nx)
+    ys = np.linspace(-1.1, 1.1, ny)
     X, Y = np.meshgrid(xs, ys)
-    R1 = np.sqrt((X - x1)**2 + Y**2) + 1e-6
-    R2 = np.sqrt((X - x2)**2 + Y**2) + 1e-6
-    return xs, ys, X, Y, (X**2 + Y**2)/2 + (1-mu)/R1 + mu/R2
+    R1 = np.sqrt((X-x1)**2 + Y**2) + 1e-6
+    R2 = np.sqrt((X-x2)**2 + Y**2) + 1e-6
+    return xs, ys, X, Y, (X**2+Y**2)/2 + (1-mu)/R1 + mu/R2
 
-# ── Omega lookup ───────────────────────────────────────────────────────────────
-def omega_at(xy, xs, ys, Om_clip):
-    xi = int(np.clip((xy[0] + 0.6) / 1.9 * len(xs), 0, len(xs)-1))
-    yi = int(np.clip((xy[1] + 0.4) / 1.6 * len(ys), 0, len(ys)-1))
-    return float(Om_clip[yi, xi])
+def oz(xy, xs, ys, Om):
+    xi = int(np.clip((xy[0]-xs[0])/(xs[-1]-xs[0])*len(xs), 0, len(xs)-1))
+    yi = int(np.clip((xy[1]-ys[0])/(ys[-1]-ys[0])*len(ys), 0, len(ys)-1))
+    return float(Om[yi, xi])
 
 # ── Static welcome ─────────────────────────────────────────────────────────────
 if not run:
-    st.info("Adjust parameters in the sidebar, then click **▶ Run simulation**. "
+    st.info(f"Choose a target in the sidebar and click **▶ Find {target}**. "
             "The 3D surface is fully interactive — drag to rotate, scroll to zoom.")
     xs, ys, X, Y, Om = potential_grid(0.0121)
     Om_c = np.clip(Om, 1.4, 3.2)
-    fig = go.Figure(go.Surface(
-        x=X, y=Y, z=Om_c, colorscale="Blues", reversescale=True,
-        opacity=0.85, showscale=True,
-        colorbar=dict(title="Ω", thickness=14),
-        contours=dict(z=dict(show=True, usecolormap=True, highlightcolor="white", project_z=True)),
-    ))
-    L4_0 = np.array([0.5 - 0.0121, np.sqrt(3)/2])
-    for (lx, ly, col, sym, name) in [
-        (-0.0121, 0, "red",    "circle",        "Earth"),
-        ( 0.9879, 0, "blue",   "circle",        "Moon"),
-        (*L4_0,      "yellow", "diamond",   "L4 (analytic)"),
-    ]:
-        fig.add_trace(go.Scatter3d(
-            x=[lx], y=[ly], z=[omega_at([lx, ly], xs, ys, np.clip(Om, 1.4, 3.2))],
-            mode="markers", marker=dict(size=8, color=col, symbol=sym),
-            name=name
-        ))
-    fig.update_layout(
-        height=600, margin=dict(l=0, r=0, t=30, b=0),
-        scene=dict(
-            xaxis_title="x (rotating frame)",
-            yaxis_title="y (rotating frame)",
-            zaxis_title="Ω",
-            camera=dict(eye=dict(x=1.4, y=-1.6, z=0.8)),
-            aspectmode="manual",
-            aspectratio=dict(x=1.2, y=1.2, z=0.6),
-        ),
-        legend=dict(x=0.01, y=0.99),
-        title="Effective potential Ω — drag to rotate, scroll to zoom",
-    )
+    Lpts0 = lagrange_points(0.0121)
+    fig = go.Figure()
+    fig.add_trace(go.Surface(x=X, y=Y, z=Om_c, colorscale="Blues", reversescale=True,
+        opacity=0.7, showscale=True, colorbar=dict(title="Ω", thickness=12),
+        hoverinfo="skip"))
+    for name, pt in Lpts0.items():
+        col, sym, lbl = LP_STYLE[name]
+        fig.add_trace(go.Scatter3d(x=[pt[0]], y=[pt[1]], z=[oz(pt,xs,ys,Om_c)],
+            mode="markers+text",
+            marker=dict(size=10, color=col, symbol=sym, line=dict(color="black",width=1)),
+            text=[f"<b>{lbl}</b>"], textposition="top center", name=lbl))
+    fig.add_trace(go.Scatter3d(x=[-0.0121], y=[0], z=[oz([-0.0121,0],xs,ys,Om_c)],
+        mode="markers", marker=dict(size=12,color="red",symbol="circle"), name="Earth"))
+    fig.add_trace(go.Scatter3d(x=[0.9879], y=[0], z=[oz([0.9879,0],xs,ys,Om_c)],
+        mode="markers", marker=dict(size=9,color="blue",symbol="circle"), name="Moon"))
+    fig.update_layout(height=640, margin=dict(l=0,r=0,t=45,b=0),
+        title="All 5 Lagrange points on Ω surface — drag to rotate",
+        scene=dict(xaxis_title="x", yaxis_title="y", zaxis_title="Ω",
+            camera=dict(eye=dict(x=0.8,y=-2.0,z=0.8)),
+            aspectmode="manual", aspectratio=dict(x=1.5,y=1.0,z=0.5)),
+        legend=dict(x=0.01,y=0.99,bgcolor="rgba(255,255,255,0.8)"),
+        paper_bgcolor="white")
     st.plotly_chart(fig, use_container_width=True)
     st.stop()
 
 # ── Run ────────────────────────────────────────────────────────────────────────
-with st.spinner("Running DMM simulation..."):
-    (traj, short_log, long_log, grad_log,
-     L4, converged_at, final_pos, final_grad,
-     bodies) = run_simulation(mu, dx, dy, alpha, beta, mem_cap, gamma, dt, max_steps)
+start_pos = L_target + np.array([dx, dy])
+with st.spinner(f"DMM finding {target}..."):
+    traj, sl, ll, gl, conv, final_pos, final_gn = simulate(
+        mu, start_pos, alpha, beta, mem_cap, gamma, dt, max_steps)
     xs, ys, X, Y, Om = potential_grid(mu)
+    Om_clip = np.clip(Om, 1.4, om_ceil)
 
-x1, x2 = bodies
-Om_clip = np.clip(Om, 1.4, omega_clip)
+x1, x2 = -mu, 1-mu
+error = np.linalg.norm(final_pos - L_target) if np.isfinite(final_pos).all() else float('nan')
 
 # ── Metrics ────────────────────────────────────────────────────────────────────
-error = np.linalg.norm(final_pos - L4) if np.isfinite(final_pos).all() else float('nan')
-c1, c2, c3, c4 = st.columns(4)
-if converged_at is not None:
-    c1.metric("Status", "✅ Converged")
-    c2.metric("Steps", f"{converged_at:,}")
+c1,c2,c3,c4,c5 = st.columns(5)
+c1.metric("Target", target)
+if conv is not None:
+    c2.metric("Status","✅ Converged"); c3.metric("Steps",f"{conv:,}")
 elif np.isfinite(final_pos).all():
-    c1.metric("Status", "⏳ Max steps reached")
-    c2.metric("Steps", f"{max_steps:,}")
+    c2.metric("Status","⏳ Max steps"); c3.metric("Steps",f"{max_steps:,}")
 else:
-    c1.metric("Status", "💥 Diverged")
-    c2.metric("Steps", "—")
-c3.metric("Position error", f"{error:.2e}" if np.isfinite(error) else "—")
-c4.metric("|∇Ω| final",    f"{final_grad:.2e}" if np.isfinite(final_grad) else "—")
+    c2.metric("Status","💥 Diverged");  c3.metric("Steps","—")
+c4.metric("Position error", f"{error:.2e}" if np.isfinite(error) else "—")
+c5.metric("|∇Ω| final",    f"{final_gn:.2e}" if np.isfinite(final_gn) else "—")
 
 st.markdown("---")
 
-# ── 3D interactive Plotly chart ────────────────────────────────────────────────
-n_pts = len(traj)
-
+# ── 3D Plotly chart ────────────────────────────────────────────────────────────
+n = len(traj)
 fig3d = go.Figure()
+fig3d.add_trace(go.Surface(x=X, y=Y, z=Om_clip, colorscale="Blues", reversescale=True,
+    opacity=0.65, showscale=True, colorbar=dict(title="Ω", thickness=12),
+    hoverinfo="skip", name="Ω surface"))
 
-# surface
-fig3d.add_trace(go.Surface(
-    x=X, y=Y, z=Om_clip,
-    colorscale="Blues", reversescale=True, opacity=0.75,
-    showscale=True, colorbar=dict(title="Ω", thickness=14),
-    name="Ω surface", hoverinfo="skip",
-))
+if n > 1:
+    tz = np.array([oz(p, xs, ys, Om_clip) for p in traj])
+    t_norm = np.linspace(0, 1, n)
+    fig3d.add_trace(go.Scatter3d(x=traj[:,0], y=traj[:,1], z=tz, mode="lines",
+        line=dict(color=t_norm, colorscale="Plasma", width=5), name="Instanton path"))
+    fig3d.add_trace(go.Scatter3d(x=[traj[0,0]], y=[traj[0,1]], z=[tz[0]],
+        mode="markers", marker=dict(size=8,color="cyan",symbol="square"), name="Start"))
+    fig3d.add_trace(go.Scatter3d(x=[traj[-1,0]], y=[traj[-1,1]], z=[tz[-1]],
+        mode="markers", marker=dict(size=11,color="black",symbol="diamond"),
+        name=f"End ({traj[-1,0]:.4f}, {traj[-1,1]:.4f})"))
 
-# trajectory on the surface
-if n_pts > 1:
-    tz = np.array([omega_at(p, xs, ys, Om_clip) for p in traj])
-    # colour by progress
-    t_norm = np.linspace(0, 1, n_pts)
-    fig3d.add_trace(go.Scatter3d(
-        x=traj[:, 0], y=traj[:, 1], z=tz,
-        mode="lines",
-        line=dict(color=t_norm, colorscale="Plasma", width=4),
-        name="Instanton path",
-    ))
-    # start / end markers
-    fig3d.add_trace(go.Scatter3d(
-        x=[traj[0, 0]], y=[traj[0, 1]], z=[tz[0]],
-        mode="markers", marker=dict(size=7, color="cyan", symbol="square"),
-        name=f"Start ({traj[0,0]:.3f}, {traj[0,1]:.3f})",
-    ))
-    fig3d.add_trace(go.Scatter3d(
-        x=[traj[-1, 0]], y=[traj[-1, 1]], z=[tz[-1]],
-        mode="markers", marker=dict(size=10, color="black", symbol="diamond"),
-        name=f"End ({traj[-1,0]:.4f}, {traj[-1,1]:.4f})",
-    ))
+fig3d.add_trace(go.Scatter3d(x=[x1],y=[0],z=[oz([x1,0],xs,ys,Om_clip)],
+    mode="markers", marker=dict(size=12,color="red",symbol="circle",
+    line=dict(color="black",width=1)), name="Earth"))
+fig3d.add_trace(go.Scatter3d(x=[x2],y=[0],z=[oz([x2,0],xs,ys,Om_clip)],
+    mode="markers", marker=dict(size=9,color="blue",symbol="circle",
+    line=dict(color="black",width=1)), name="Moon"))
 
-# bodies + L4
-for (lx, ly, col, sym, lname) in [
-    (x1, 0,    "red",    "circle",      "Earth"),
-    (x2, 0,    "blue",   "circle",      "Moon"),
-    (*L4,      "yellow", "diamond", f"L4 analytic ({L4[0]:.4f}, {L4[1]:.4f})"),
-]:
-    fig3d.add_trace(go.Scatter3d(
-        x=[lx], y=[ly], z=[omega_at([lx, ly], xs, ys, Om_clip)],
-        mode="markers", marker=dict(size=9, color=col, symbol=sym,
-                                    line=dict(color="black", width=1)),
-        name=lname,
-    ))
+for name, pt in Lpts.items():
+    if not show_all and name != target:
+        continue
+    col, sym, lbl = LP_STYLE[name]
+    is_t = (name == target)
+    fig3d.add_trace(go.Scatter3d(x=[pt[0]],y=[pt[1]],z=[oz(pt,xs,ys,Om_clip)],
+        mode="markers+text",
+        marker=dict(size=13 if is_t else 8, color=col, symbol=sym,
+                    line=dict(color="black",width=2 if is_t else 1)),
+        text=[f"<b>{lbl}</b>" if is_t else lbl], textposition="top center", name=lbl))
 
-fig3d.update_layout(
-    height=640, margin=dict(l=0, r=0, t=40, b=0),
-    title="DMM instanton path on Ω surface  —  drag to rotate · scroll to zoom · double-click to reset",
-    scene=dict(
-        xaxis_title="x (rotating frame)",
-        yaxis_title="y (rotating frame)",
-        zaxis_title="Ω (eff. potential)",
-        camera=dict(eye=dict(x=1.3, y=-1.5, z=0.7)),
-        aspectmode="manual",
-        aspectratio=dict(x=1.2, y=1.2, z=0.5),
-    ),
-    legend=dict(x=0.01, y=0.99, bgcolor="rgba(255,255,255,0.7)"),
-)
-
+fig3d.update_layout(height=660, margin=dict(l=0,r=0,t=45,b=0),
+    title=f"DMM Instanton Path → {target}  |  drag to rotate · scroll to zoom · double-click to reset",
+    scene=dict(xaxis_title="x (rotating frame)", yaxis_title="y (rotating frame)",
+        zaxis_title="Ω", camera=dict(eye=dict(x=0.9,y=-2.0,z=0.8)),
+        aspectmode="manual", aspectratio=dict(x=1.5,y=1.0,z=0.5)),
+    legend=dict(x=0.01,y=0.99,bgcolor="rgba(255,255,255,0.85)"),
+    paper_bgcolor="white")
 st.plotly_chart(fig3d, use_container_width=True)
 
-# ── Optional 2D contour ────────────────────────────────────────────────────────
-if show_2d:
-    fig2d = go.Figure()
-    fig2d.add_trace(go.Contour(
-        x=xs, y=ys, z=Om_clip,
-        colorscale="Blues", reversescale=True, opacity=0.6,
-        contours=dict(showlabels=True, labelfont=dict(size=9)),
-        colorbar=dict(title="Ω", thickness=12),
-        name="Ω contours",
-    ))
-    if n_pts > 1:
-        fig2d.add_trace(go.Scatter(
-            x=traj[:, 0], y=traj[:, 1],
-            mode="lines",
-            line=dict(color="darkorange", width=2),
-            name="Instanton path",
-        ))
-        fig2d.add_trace(go.Scatter(
-            x=[traj[0, 0]], y=[traj[0, 1]],
-            mode="markers", marker=dict(size=10, color="cyan", symbol="square"),
-            name="Start",
-        ))
-        fig2d.add_trace(go.Scatter(
-            x=[traj[-1, 0]], y=[traj[-1, 1]],
-            mode="markers", marker=dict(size=12, color="black", symbol="star"),
-            name="End",
-        ))
-    for (lx, ly, col, sym, lname) in [
-        (x1, 0, "red",    "circle",        "Earth"),
-        (x2, 0, "blue",   "circle",        "Moon"),
-        (*L4,   "yellow", "diamond",   "L4 analytic"),
-    ]:
-        fig2d.add_trace(go.Scatter(
-            x=[lx], y=[ly], mode="markers",
-            marker=dict(size=12, color=col, symbol=sym,
-                        line=dict(color="black", width=1)),
-            name=lname,
-        ))
-    fig2d.update_layout(
-        height=500, title="2D contour view",
-        xaxis_title="x (rotating frame)", yaxis_title="y (rotating frame)",
-        yaxis_scaleanchor="x",
-        legend=dict(x=0.01, y=0.99, bgcolor="rgba(255,255,255,0.8)"),
-        margin=dict(l=40, r=20, t=40, b=40),
-    )
-    st.plotly_chart(fig2d, use_container_width=True)
-
-# ── Memory dynamics (matplotlib) ──────────────────────────────────────────────
-if show_memory and n_pts > 0:
-    steps_x = np.arange(len(short_log)) * 10
-    fig_mem, ax = plt.subplots(figsize=(11, 3.5))
+# ── Memory dynamics ────────────────────────────────────────────────────────────
+if show_mem and n > 0:
+    sx = np.arange(len(sl)) * 10
+    fig_m, ax = plt.subplots(figsize=(11, 3.4))
     ax2 = ax.twinx()
-
-    l1, = ax.plot(steps_x, short_log, color="royalblue",  lw=1.3, label="short_mem  xₛ")
-    l2, = ax.plot(steps_x, long_log,  color="darkorange", lw=1.8, label="long_mem  w_L")
-    l3, = ax2.semilogy(steps_x, np.clip(grad_log, 1e-10, None),
+    l1, = ax.plot(sx, sl, color="royalblue",  lw=1.3, label="short_mem  xₛ")
+    l2, = ax.plot(sx, ll, color="darkorange", lw=1.8, label="long_mem  w_L")
+    l3, = ax2.semilogy(sx, np.clip(gl,1e-10,None),
                         color="seagreen", lw=1.1, alpha=0.85, label="|∇Ω|")
-    ax2.axhline(1e-6, ls="--", color="seagreen", lw=0.8, alpha=0.5, label="threshold 10⁻⁶")
-    if converged_at:
-        ax.axvline(converged_at, ls=":", color="grey", lw=1.2,
-                   label=f"Converged @ {converged_at:,}")
-
+    ax2.axhline(1e-6, ls="--", color="seagreen", lw=0.8, alpha=0.5)
+    if conv:
+        ax.axvline(conv, ls=":", color="grey", lw=1.2, label=f"Converged @ {conv:,}")
     ax.set_xlabel("Simulation step"); ax.set_ylabel("Memory value")
-    ax2.set_ylabel("|∇Ω|  (log scale)", color="seagreen")
+    ax2.set_ylabel("|∇Ω|  (log)", color="seagreen")
     ax2.tick_params(axis="y", colors="seagreen")
-    ax.set_title("DMM Memory Variables & Constraint Norm")
+    ax.set_title(f"DMM Memory Dynamics — finding {target}")
     ax.grid(alpha=0.3)
-    lines  = [l1, l2, l3]; labels = [l.get_label() for l in lines]
-    ax.legend(lines, labels, fontsize=9, loc="upper right")
+    ax.legend([l1,l2,l3], ["short_mem xₛ","long_mem w_L","|∇Ω|"], fontsize=9, loc="upper right")
     plt.tight_layout()
-    st.pyplot(fig_mem, use_container_width=True)
+    st.pyplot(fig_m, use_container_width=True)
 
-# ── Equations ──────────────────────────────────────────────────────────────────
+# ── L-point table ──────────────────────────────────────────────────────────────
+with st.expander("All 5 Lagrange point positions (analytic)", expanded=True):
+    rows = []
+    for name, pt in Lpts.items():
+        stab = "✅ Stable (Routh's criterion)" if name in ("L4","L5") else "⚠️ Unstable saddle"
+        marker = " ◀ target" if name == target else ""
+        rows.append(f"| **{name}**{marker} | {pt[0]:.6f} | {pt[1]:.6f} | {stab} |")
+    st.markdown(
+        "| Point | x | y | Stability |\n"
+        "|-------|---|---|----------|\n" + "\n".join(rows))
+
 with st.expander("Physics & DMM equations", expanded=False):
     st.markdown(r"""
 ### Effective potential
 $$\Omega = \frac{x^2+y^2}{2} + \frac{1-\mu}{r_1} + \frac{\mu}{r_2}$$
 
-### Rotating-frame EOM (DMM emulator)
-$$\ddot{x} = \underbrace{2\dot{y}}_{\text{Coriolis}} - \underbrace{w_L\,\frac{\partial\Omega}{\partial x}}_{\text{memory force}} - \gamma\dot{x}$$
-$$\ddot{y} = \underbrace{-2\dot{x}}_{\text{Coriolis}} - \underbrace{w_L\,\frac{\partial\Omega}{\partial y}}_{\text{memory force}} - \gamma\dot{y}$$
+### Rotating-frame EOM with DMM memory
+$$\ddot{x} = \underbrace{2\dot{y}}_{\text{Coriolis}} - w_L\,\partial_x\Omega - \gamma\dot{x}, \qquad
+\ddot{y} = \underbrace{-2\dot{x}}_{\text{Coriolis}} - w_L\,\partial_y\Omega - \gamma\dot{y}$$
 
-### DMM memory update
-$$x_s \leftarrow (1-\alpha)\,x_s + \alpha\,|\nabla\Omega| \qquad \text{(short-term: tracks violation)}$$
-$$w_L \leftarrow \min\!\bigl(w_L + \beta\,x_s\,\Delta t,\; w_{cap}\bigr) \qquad \text{(long-term: amplifies force)}$$
+### DMM memory (dynamic Lagrange multipliers)
+$$x_s \leftarrow (1-\alpha)\,x_s + \alpha\,|\nabla\Omega|, \qquad
+w_L \leftarrow \min(w_L + \beta\,x_s\,\Delta t,\ w_{cap})$$
 
-### L4 analytic position (equilateral triangle with both primaries)
-$$x_{L4} = \tfrac{1}{2}-\mu \approx 0.4879, \qquad y_{L4} = \tfrac{\sqrt{3}}{2} \approx 0.8660, \qquad r_1 = r_2 = 1$$
-
-**Routh's criterion:** L4/L5 stable only for $\mu < 0.0385$. Coriolis is essential — without it, gradient descent falls into the Earth's gravity well.
+| Points | Stability | Damping strategy |
+|--------|-----------|-----------------|
+| **L4, L5** | ✅ Stable (Routh: μ < 0.0385) | Light γ ~0.1 — Coriolis is the stabiliser |
+| **L1, L2, L3** | ⚠️ Unstable saddle | Heavy γ ~0.8 — suppresses Coriolis y-drift |
     """)
