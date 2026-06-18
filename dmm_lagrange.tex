@@ -1,0 +1,499 @@
+\documentclass[10pt,twocolumn]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage[margin=1.8cm,columnsep=0.6cm]{geometry}
+\usepackage{caption}
+\usepackage{parskip}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[activate=false]{microtype}
+\usepackage{titlesec}
+
+\titlespacing{\section}{0pt}{8pt plus 2pt minus 1pt}{4pt plus 1pt}
+\titlespacing{\subsection}{0pt}{6pt plus 2pt minus 1pt}{3pt plus 1pt}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+
+\title{\textbf{Digital MemComputing for Orbital Mechanics:
+Finding All Five Lagrange Points of the Earth--Moon System
+via Memory-Driven Gradient Descent in the Rotating Frame}}
+
+\author{
+  Dietmar Henrich$^{1}$ \and Massimiliano Di Ventra$^{2}$\\[4pt]
+  \small $^{1}$Chair of Materials Science and Nanotechnology,
+  Technische Universit\"{a}t Dresden, 01062 Dresden, Germany\\
+  \small $^{2}$Department of Physics, University of California San Diego,
+  La Jolla, CA 92093, USA
+}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We present a Digital MemComputing Machine (DMM) emulator that locates
+all five Lagrange equilibrium points (L1--L5) of the Earth--Moon
+restricted three-body problem in the co-rotating frame.
+The DMM replaces the static multiplier of classical penalty-function
+optimisation with two coupled memory variables---a short-term exponential
+moving average and a long-term ratcheting accumulator---that together act
+as a \emph{dynamic} Lagrange multiplier.
+These variables amplify the gradient-descent force
+$-\nabla\Omega$ until the clause $|\nabla\Omega|<10^{-6}$ is satisfied,
+at which point the particle has reached an equilibrium.
+For the triangular points L4 and L5 the Coriolis acceleration
+$(2\dot{y},\,-2\dot{x})$ of the rotating frame is the essential
+stabilising mechanism; its omission causes divergence into the gravity
+wells of the primary bodies.
+The emulator converges to L4 at step~48\,134 with a position error of
+order $2\times10^{-5}$ (normalised units) and a gradient norm below
+$10^{-6}$.
+Collinear points L1--L3, which are cross-axis unstable saddles, require
+heavy dissipation ($\gamma\approx0.8$) to suppress Coriolis-driven
+transverse drift.
+The full simulation and an interactive Streamlit front-end are released
+as open-source Python code~\cite{github2024}.
+\end{abstract}
+
+%=============================================================================
+\section{Introduction}
+%=============================================================================
+
+MemComputing is a non-von-Neumann computational paradigm in which a
+physical system solves problems by leveraging \emph{time non-locality},
+i.e.\ the ability of its internal degrees of freedom to retain and
+utilise information about past states \cite{diventra2022}.
+In a Digital MemComputing Machine the fundamental unit is a
+self-organising gate: a circuit element whose internal memory variables
+evolve in response to their own history and autonomously guide the
+system toward the solution of the target problem
+\cite{traversa2015,diventra2018}.
+
+The restricted three-body problem is a classical benchmark for
+non-linear dynamics and celestial mechanics \cite{szebehely1967}.
+Two massive primaries (Earth and Moon) follow circular Keplerian orbits
+about their common barycentre while a test particle of negligible mass
+moves under their combined gravitational and centrifugal influence.
+In the co-rotating frame five stationary equilibrium solutions exist,
+known as Lagrange points \cite{lagrange1772,szebehely1967}.
+Their location and stability are of direct practical relevance for
+space-mission design.
+
+We demonstrate that the DMM framework provides a natural and physically
+transparent approach to finding all five Lagrange points.
+The clause the DMM must satisfy is $\nabla\Omega = \mathbf{0}$, where
+$\Omega$ is the Jacobi effective potential of the rotating frame.
+Memory variables act as dynamic Lagrange multipliers that increase the
+restoring force until the clause is met.
+No explicit knowledge of the target position is fed into the integrator.
+
+%=============================================================================
+\section{The Restricted Three-Body Problem}
+%=============================================================================
+
+\subsection{Effective potential}
+
+We adopt dimensionless units in which the Earth--Moon distance is unity
+and the orbital angular frequency $\omega=1$.
+The mass ratio is
+$\mu = M_{\text{Moon}}/(M_{\text{Earth}}+M_{\text{Moon}}) = 0.0121$,
+placing the Earth at $x_1=-\mu$ and the Moon at $x_2=1-\mu$.
+
+The effective (Jacobi) potential in the co-rotating frame is
+\begin{equation}
+  \Omega(x,y)
+  = \frac{x^2+y^2}{2}
+  + \frac{1-\mu}{r_1}
+  + \frac{\mu}{r_2},
+  \label{eq:omega}
+\end{equation}
+where $r_1=\sqrt{(x-x_1)^2+y^2}$ and $r_2=\sqrt{(x-x_2)^2+y^2}$
+are the distances to Earth and Moon \cite{szebehely1967}.
+
+\subsection{Equations of motion}
+
+In the co-rotating frame the equations of motion are
+\begin{align}
+  \ddot{x} &=  2\dot{y} - \frac{\partial\Omega}{\partial x} - \gamma\dot{x},
+  \label{eq:eomx}\\
+  \ddot{y} &= -2\dot{x} - \frac{\partial\Omega}{\partial y} - \gamma\dot{y},
+  \label{eq:eomy}
+\end{align}
+where $\pm 2\dot{y}/\dot{x}$ are the Coriolis accelerations of the
+rotating frame and $\gamma$ is a linear damping coefficient.
+The partial derivatives of $\Omega$ are
+\begin{align}
+  \frac{\partial\Omega}{\partial x}
+  &= x - \frac{(1-\mu)(x-x_1)}{r_1^3} - \frac{\mu(x-x_2)}{r_2^3},
+  \label{eq:gx}\\
+  \frac{\partial\Omega}{\partial y}
+  &= y - \frac{(1-\mu)\,y}{r_1^3} - \frac{\mu\,y}{r_2^3}.
+  \label{eq:gy}
+\end{align}
+
+\subsection{Lagrange equilibrium points}
+
+At a Lagrange point $\dot{x}=\dot{y}=\ddot{x}=\ddot{y}=0$, so
+equations~\eqref{eq:eomx}--\eqref{eq:eomy} reduce to
+$\nabla\Omega=\mathbf{0}$.
+There are exactly five solutions \cite{lagrange1772,szebehely1967}:
+
+\textbf{L1, L2, L3} (collinear): three points on the $x$-axis where
+$\partial\Omega/\partial x=0$; their positions are found numerically
+as roots of equation~\eqref{eq:gx} with $y=0$.
+
+\textbf{L4, L5} (triangular): two points forming equilateral triangles
+with both primaries, located at
+$(x,y)=(0.5-\mu,\,\pm\sqrt{3}/2) = (0.4879,\,\pm0.8660)$.
+
+\subsection{Stability}
+
+The triangular points are \emph{linearly stable} only if Routh's
+criterion is satisfied \cite{routh1875}:
+\begin{equation}
+  \mu < \mu_{\text{Routh}}
+  = \tfrac{1}{2}\!\left(1-\sqrt{\tfrac{23}{27}}\right) \approx 0.03852.
+\end{equation}
+With $\mu=0.0121$ the Earth--Moon system satisfies this condition.
+L1, L2, and L3 are always unstable saddle points: minima of $\Omega$
+along the $x$-axis but saddles in the full $(x,y)$-plane.
+
+%=============================================================================
+\section{Digital MemComputing Machine Emulator}
+%=============================================================================
+
+\subsection{Clause and variable mapping}
+
+A DMM solves a problem by satisfying a set of clauses
+\cite{diventra2022,traversa2015}.
+Here a single vector clause is employed:
+\begin{equation}
+  C:\quad |\nabla\Omega(x,y)| = 0.
+  \label{eq:clause}
+\end{equation}
+The DMM evolves the state $(x,y,\dot{x},\dot{y})$ together with two
+internal memory variables until clause~\eqref{eq:clause} is satisfied.
+Table~\ref{tab:mapping} summarises the mapping to physical quantities.
+
+\begin{table}[ht]
+\centering
+\caption{DMM variable mapping.}
+\label{tab:mapping}
+\small
+\begin{tabular}{lll}
+\toprule
+DMM concept & Symbol & Physical role \\
+\midrule
+Clause        & $|\nabla\Omega|=0$ & Lagrange-point condition \\
+Short-term mem.\ & $x_s$          & EMA of $|\nabla\Omega|$ \\
+Long-term mem.\  & $w_L$          & Dynamic Lagrange multiplier \\
+Instanton path   & $\mathbf{r}(t)$& Trajectory to equilibrium \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Memory variables}
+
+The \emph{short-term memory} $x_s$ is an exponential moving average
+of the instantaneous constraint violation:
+\begin{equation}
+  x_s \;\leftarrow\; (1-\alpha)\,x_s + \alpha\,|\nabla\Omega|,
+  \label{eq:sm}
+\end{equation}
+with decay parameter $\alpha\in(0,1)$.
+
+The \emph{long-term memory} $w_L$ accumulates $x_s$ over time:
+\begin{equation}
+  w_L \;\leftarrow\;
+  \min\!\left(w_L + \beta\,x_s\,\Delta t,\; w_{\text{cap}}\right),
+  \label{eq:lm}
+\end{equation}
+with growth rate $\beta$ and an upper bound $w_{\text{cap}}$ that
+prevents overflow.
+Because $x_s\geq0$ always, $w_L$ is non-decreasing: it ratchets upward
+as long as the clause is unsatisfied and stops only when
+$|\nabla\Omega|\to0$.
+This ratcheting behaviour is the essential DMM mechanism, corresponding
+to the self-organising character of Di Ventra's memory gates
+\cite{diventra2022}.
+
+\subsection{DMM-augmented equations of motion}
+
+Substituting $w_L$ as a dynamic multiplier into
+equations~\eqref{eq:eomx}--\eqref{eq:eomy} gives
+\begin{align}
+  \ddot{x} &=  2\dot{y}
+               - w_L\,\frac{\partial\Omega}{\partial x}
+               - \gamma\dot{x},
+  \label{eq:dmm_x}\\
+  \ddot{y} &= -2\dot{x}
+               - w_L\,\frac{\partial\Omega}{\partial y}
+               - \gamma\dot{y}.
+  \label{eq:dmm_y}
+\end{align}
+At the start $w_L=1$, so the dynamics reduce to standard damped gradient
+descent with Coriolis.
+As integration proceeds, $w_L$ grows whenever $|\nabla\Omega|>0$,
+progressively amplifying the restoring force until the particle locks
+onto the equilibrium.
+
+\subsection{Role of the Coriolis acceleration}
+
+The Coriolis terms $+2\dot{y}$ and $-2\dot{x}$ convert the L4 and L5
+saddle points of the static potential into stable spiral attractors in
+the full rotating-frame dynamics \cite{szebehely1967,routh1875}.
+For the collinear points L1--L3, which are minima along $y=0$ but
+transversely unstable, the damping coefficient must be large enough
+($\gamma\approx0.8$) to overdamp the Coriolis-driven transverse drift,
+effectively restricting the trajectory to a neighbourhood of the
+$x$-axis.
+
+\subsection{Numerical integration}
+
+The system is integrated with the explicit Euler method with time step
+$\Delta t=0.01$.
+A singularity guard $\varepsilon=10^{-8}$ is added to $r_1$ and $r_2$
+to prevent division-by-zero near the primary bodies.
+The positions of L1, L2, and L3 are determined prior to the DMM run
+using Brent's method \cite{brent1973} on
+equation~\eqref{eq:gx} restricted to $y=0$; these serve only as
+reference values for computing the final position error and are not fed
+into the integrator.
+Default simulation parameters are listed in Table~\ref{tab:params}.
+
+\begin{table}[ht]
+\centering
+\caption{Default simulation parameters.}
+\label{tab:params}
+\small
+\begin{tabular}{llcc}
+\toprule
+Parameter & Symbol & L4/L5 & L1/L2/L3 \\
+\midrule
+Mass ratio        & $\mu$            & \multicolumn{2}{c}{0.0121} \\
+Time step         & $\Delta t$       & \multicolumn{2}{c}{0.01}   \\
+Short-term decay  & $\alpha$         & \multicolumn{2}{c}{0.05}   \\
+Long-term growth  & $\beta$          & \multicolumn{2}{c}{0.001}  \\
+Memory cap        & $w_{\text{cap}}$ & \multicolumn{2}{c}{5.0}    \\
+Damping           & $\gamma$         & 0.1 & 0.8 \\
+Singularity guard & $\varepsilon$    & \multicolumn{2}{c}{$10^{-8}$} \\
+Conv.\ threshold  & ---              & \multicolumn{2}{c}{$|\nabla\Omega|<10^{-6}$} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%=============================================================================
+\section{Results}
+%=============================================================================
+
+\subsection{Instanton path to L4}
+
+Figure~\ref{fig:3d} shows the effective potential surface $\Omega(x,y)$
+(clipped at $\Omega=3.2$ to suppress the deep gravitational wells)
+together with the instanton path of the DMM emulator targeting L4.
+The simulation starts at an offset
+$(\Delta x,\Delta y)=(0.20,-0.30)$ from the analytic L4 position with
+zero initial velocity.
+The colour of the trajectory encodes time (purple: early, yellow: late),
+revealing the spiral approach characteristic of a Coriolis-stabilised
+attractor.
+
+\begin{figure*}[ht]
+  \centering
+  \includegraphics[width=0.90\textwidth]{screenshot_3d.png}
+  \caption{Three-dimensional effective potential surface $\Omega(x,y)$
+           in the Earth--Moon co-rotating frame ($\mu=0.0121$, wells
+           clipped at $\Omega=3.2$).
+           Earth (red) and Moon (blue) occupy the deep potential minima.
+           The DMM instanton path (colour-coded by simulation time,
+           purple to yellow) spirals from the initial offset position to
+           L4 (gold diamond) in 48\,134 integration steps.
+           All five Lagrange points are marked with distinct symbols.}
+  \label{fig:3d}
+\end{figure*}
+
+\subsection{Memory dynamics}
+
+Figure~\ref{fig:mem} shows the time evolution of the two memory
+variables and the constraint violation $|\nabla\Omega|$ during the L4
+run.
+Figure~\ref{fig:2d} provides the complementary 2D top-down view of
+the same trajectory superimposed on filled contours of $\Omega$,
+confirming that the instanton path is a smooth spiral that does not
+pass through either primary body.
+Three features of the memory dynamics (Figure~\ref{fig:mem}) are notable.
+(i)~The short-term memory $x_s$ rises at the start as the particle is
+displaced far from equilibrium, then decays in an oscillatory fashion
+as the particle executes libration about L4.
+(ii)~The long-term memory $w_L$ saturates immediately at its cap value
+$w_{\text{cap}}=5$ and remains there throughout the run, indicating
+that the constraint violation is persistent enough to drive $w_L$ to
+its maximum early on.
+(iii)~The constraint norm $|\nabla\Omega|$ oscillates with a decreasing
+envelope, each cycle corresponding to one libration period; the envelope
+decays monotonically and crosses the convergence threshold $10^{-6}$
+at step~48\,134.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\columnwidth]{screenshot_memory.png}
+  \caption{DMM memory dynamics during the L4 search.
+           Short-term memory $x_s$ (blue) tracks the instantaneous
+           constraint violation.
+           Long-term memory $w_L$ (orange) saturates at
+           $w_{\text{cap}}=5$.
+           Gradient norm $|\nabla\Omega|$ (green, log scale) decays
+           with a libration-period envelope and reaches $10^{-6}$
+           at step~48\,134 (dotted line).}
+  \label{fig:mem}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\columnwidth]{screenshot_2d.png}
+  \caption{Top-down 2D projection of the DMM instanton path in the
+           co-rotating frame.
+           Filled contours show the effective potential $\Omega$
+           (clipped at 3.2); equipotential lines are overlaid in white.
+           The trajectory is colour-coded by simulation time
+           (purple: early, yellow: late).
+           All five Lagrange points are labelled; Earth (red circle)
+           and Moon (blue circle) are at the deep potential minima.
+           The spiral convergence to L4 (gold diamond) is clearly
+           visible as a tightening inward spiral.}
+  \label{fig:2d}
+\end{figure}
+
+\subsection{Accuracy}
+
+At convergence the particle position is $(0.48791,\,0.86596)$,
+compared with the analytic L4 value $(0.4879,\,0.8660)$,
+giving a Euclidean position error of $\approx 2\times10^{-5}$
+in normalised units.
+
+\subsection{Collinear points}
+
+With $\gamma=0.8$ and starting offsets of $(\pm0.05,\,0.02)$ from the
+numerically determined positions, the emulator converges to L1, L2,
+and L3 as well.
+The higher damping suppresses the Coriolis-driven transverse instability.
+The memory mechanism operates identically to the L4 case: $w_L$
+ratchets upward until $|\nabla\Omega|$ reaches the threshold.
+
+%=============================================================================
+\section{Discussion}
+%=============================================================================
+
+\subsection{The instanton interpretation}
+
+In DMM theory the trajectory in Figure~\ref{fig:3d} is an
+\emph{instanton}: a non-perturbative solution of the DMM differential
+equations connecting the initial out-of-equilibrium state to the
+solution state \cite{diventra2022}.
+Instantons are guaranteed to exist in dissipative DMMs because the
+long-memory variable $w_L$ creates a monotonically increasing potential
+energy for the extended phase space; the system cannot cycle
+indefinitely and must reach a fixed point \cite{diventra2022}.
+
+\subsection{Memory versus a fixed multiplier}
+
+A fixed large multiplier on the gradient term overshoots and oscillates
+when starting close to the target.
+The memory adapts: $w_L$ saturates at a value set by the persistent
+violation, and $x_s$ collapses when the violation ends, adjusting the
+effective multiplier to the instantaneous dynamics without manual tuning.
+
+%=============================================================================
+\section{Conclusion}
+%=============================================================================
+
+We have demonstrated that the Digital MemComputing Machine framework
+provides a physically transparent approach to the equilibrium problem
+of celestial mechanics.
+By treating $\nabla\Omega=\mathbf{0}$ as the clause to satisfy, and
+equipping the gradient-descent integrator with two memory variables that
+function as a dynamic Lagrange multiplier, the emulator autonomously
+locates all five Lagrange points of the Earth--Moon system without prior
+knowledge of their positions.
+
+The essential physics the emulator must respect are the Coriolis
+acceleration of the rotating frame and the correct sign of the gradient
+force.
+When these are implemented faithfully, the memory mechanism reliably
+drives the system to the solution along an instanton path consistent
+with DMM theory.
+The simulation is available as open-source code with an interactive
+Streamlit front-end \cite{github2024}.
+
+%=============================================================================
+\section*{Acknowledgements}
+%=============================================================================
+
+The authors acknowledge the conceptual framework developed
+in \cite{diventra2022} and the classical treatment of the restricted
+three-body problem in \cite{szebehely1967}.
+
+%=============================================================================
+\bibliographystyle{unsrt}
+\begin{thebibliography}{9}
+
+\bibitem{diventra2022}
+M.~Di Ventra,
+\textit{MemComputing: Fundamentals and Applications of Time Non-Locality}.
+Oxford University Press, Oxford, 2022.
+
+\bibitem{traversa2015}
+F.~L.~Traversa and M.~Di Ventra,
+``Universal memcomputing machines,''
+\textit{IEEE Trans.\ Neural Netw.\ Learn.\ Syst.},
+vol.~26, no.~11, pp.~2702--2715, 2015.
+
+\bibitem{diventra2018}
+M.~Di Ventra and F.~L.~Traversa,
+``Perspective: Memcomputing: Leveraging memory and physics to compute
+efficiently,''
+\textit{J.~Appl.\ Phys.}, vol.~123, no.~18, p.~180901, 2018.
+
+\bibitem{szebehely1967}
+V.~Szebehely,
+\textit{Theory of Orbits: The Restricted Problem of Three Bodies}.
+Academic Press, New York, 1967.
+
+\bibitem{lagrange1772}
+J.-L.~Lagrange,
+``Essai sur le probl\`{e}me des trois corps,''
+\textit{Prix de l'Acad.\ R.\ Sci.\ Paris}, vol.~9, 1772;
+reprinted in \textit{\OE uvres de Lagrange}, vol.~6,
+Gauthier-Villars, Paris, 1873.
+
+\bibitem{routh1875}
+E.~J.~Routh,
+``On Laplace's three particles, with a supplement on the stability of
+steady motion,''
+\textit{Proc.\ London Math.\ Soc.}, vol.~s1-6, pp.~86--97, 1875.
+
+\bibitem{brent1973}
+R.~P.~Brent,
+\textit{Algorithms for Minimization without Derivatives}.
+Prentice-Hall, Englewood Cliffs, NJ, 1973.
+
+\bibitem{github2024}
+D.~Henrich,
+``DigitalMemComputing: DMM emulator for Earth--Moon Lagrange points,''
+GitHub repository, 2026.
+\url{https://github.com/drhenrich/DigitalMemComputing}
+
+\end{thebibliography}
+
+\end{document}

@@ -231,6 +231,51 @@ fig3d.update_layout(height=660, margin=dict(l=0,r=0,t=45,b=0),
     paper_bgcolor="white")
 st.plotly_chart(fig3d, use_container_width=True)
 
+# ── 2D projection ──────────────────────────────────────────────────────────────
+import matplotlib.colors as mcolors
+st.markdown("### 2D Projection — co-rotating frame")
+fig2d, ax2d = plt.subplots(figsize=(8, 6))
+cf = ax2d.contourf(X, Y, Om_clip, levels=40, cmap="Blues_r", alpha=0.88)
+plt.colorbar(cf, ax=ax2d, label="Ω (clipped)", shrink=0.8)
+ax2d.contour(X, Y, Om_clip, levels=15, colors="white", linewidths=0.35, alpha=0.35)
+if n > 1:
+    t_norm2d = np.linspace(0, 1, n)
+    for i in range(n - 1):
+        c2d = plt.cm.plasma(t_norm2d[i])
+        ax2d.plot(traj[i:i+2, 0], traj[i:i+2, 1], color=c2d, lw=1.0,
+                  solid_capstyle="round")
+    ax2d.scatter(traj[0, 0], traj[0, 1], color="cyan", s=80, zorder=6,
+                 marker="s", edgecolors="black", lw=0.8, label="Start")
+    ax2d.scatter(traj[-1, 0], traj[-1, 1], color="black", s=100, zorder=6,
+                 marker="D", edgecolors="white", lw=0.8,
+                 label=f"End ({traj[-1,0]:.4f}, {traj[-1,1]:.4f})")
+ax2d.scatter(x1, 0, color="red",  s=180, zorder=7, edgecolors="black", lw=0.8, label="Earth")
+ax2d.scatter(x2, 0, color="blue", s=100, zorder=7, edgecolors="black", lw=0.8, label="Moon")
+LP2D_STYLE = {"L1":("cyan","P",120),"L2":("lime","P",120),"L3":("magenta","P",120),
+              "L4":("gold","D",180),"L5":("orange","D",180)}
+LP2D_OFF   = {"L1":(0.03,0.05),"L2":(0.03,0.05),"L3":(-0.20,0.05),
+              "L4":(0.05,0.05),"L5":(0.05,-0.08)}
+for lname, lpt in Lpts.items():
+    col2, mk2, sz2 = LP2D_STYLE[lname]
+    ax2d.scatter(lpt[0], lpt[1], color=col2, s=sz2, marker=mk2,
+                 zorder=8, edgecolors="black", lw=0.8)
+    dx2, dy2 = LP2D_OFF[lname]
+    ax2d.text(lpt[0]+dx2, lpt[1]+dy2, lname, fontsize=9, fontweight="bold",
+              color=col2, bbox=dict(boxstyle="round,pad=0.15", fc="black", alpha=0.55))
+sm_cb2 = plt.cm.ScalarMappable(cmap="plasma",
+                                norm=mcolors.Normalize(0, 1))
+sm_cb2.set_array([])
+cb3 = plt.colorbar(sm_cb2, ax=ax2d, shrink=0.45, pad=0.02)
+cb3.set_label("Trajectory time (norm.)", fontsize=8)
+cb3.set_ticks([0, 0.5, 1]); cb3.set_ticklabels(["Start", "Mid", "End"])
+ax2d.set_xlabel("x (rotating frame)"); ax2d.set_ylabel("y (rotating frame)")
+ax2d.set_title(f"DMM Instanton Path → {target}  |  2D top-down view")
+ax2d.legend(loc="upper left", fontsize=8, framealpha=0.85)
+ax2d.set_xlim(-1.6, 1.5); ax2d.set_ylim(-1.1, 1.1)
+ax2d.set_aspect("equal")
+plt.tight_layout()
+st.pyplot(fig2d, use_container_width=True)
+
 # ── Memory dynamics ────────────────────────────────────────────────────────────
 if show_mem and n > 0:
     sx = np.arange(len(sl)) * 10
