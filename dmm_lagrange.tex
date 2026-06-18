@@ -309,7 +309,7 @@ The colour of the trajectory encodes time (purple: early, yellow: late),
 revealing the spiral approach characteristic of a Coriolis-stabilised
 attractor.
 
-\begin{figure*}[ht]
+\begin{figure*}[!t]
   \centering
   \includegraphics[width=0.90\textwidth]{screenshot_3d.png}
   \caption{Three-dimensional effective potential surface $\Omega(x,y)$
@@ -323,6 +323,18 @@ attractor.
   \label{fig:3d}
 \end{figure*}
 
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.60\textwidth]{screenshot_2d.png}
+  \caption{Top-down 2D projection of the DMM instanton path
+           ($\mu=0.0121$). Filled contours: effective potential
+           $\Omega$ (clipped at 3.2). Trajectory colour: simulation
+           time (purple$\to$yellow). The inward spiral converges to
+           L4 (gold diamond). All five Lagrange points and both
+           primary bodies are labelled.}
+  \label{fig:2d}
+\end{figure*}
+
 \subsection{Memory dynamics}
 
 Figure~\ref{fig:mem} shows the time evolution of the two memory
@@ -332,7 +344,7 @@ Figure~\ref{fig:2d} provides the complementary 2D top-down view of
 the same trajectory superimposed on filled contours of $\Omega$,
 confirming that the instanton path is a smooth spiral that does not
 pass through either primary body.
-Three features of the memory dynamics (Figure~\ref{fig:mem}) are notable.
+Three features of the memory dynamics are notable.
 (i)~The short-term memory $x_s$ rises at the start as the particle is
 displaced far from equilibrium, then decays in an oscillatory fashion
 as the particle executes libration about L4.
@@ -345,9 +357,9 @@ envelope, each cycle corresponding to one libration period; the envelope
 decays monotonically and crosses the convergence threshold $10^{-6}$
 at step~48\,134.
 
-\begin{figure}[ht]
+\begin{figure*}[!t]
   \centering
-  \includegraphics[width=\columnwidth]{screenshot_memory.png}
+  \includegraphics[width=0.90\textwidth]{screenshot_memory.png}
   \caption{DMM memory dynamics during the L4 search.
            Short-term memory $x_s$ (blue) tracks the instantaneous
            constraint violation.
@@ -357,23 +369,7 @@ at step~48\,134.
            with a libration-period envelope and reaches $10^{-6}$
            at step~48\,134 (dotted line).}
   \label{fig:mem}
-\end{figure}
-
-\begin{figure}[ht]
-  \centering
-  \includegraphics[width=\columnwidth]{screenshot_2d.png}
-  \caption{Top-down 2D projection of the DMM instanton path in the
-           co-rotating frame.
-           Filled contours show the effective potential $\Omega$
-           (clipped at 3.2); equipotential lines are overlaid in white.
-           The trajectory is colour-coded by simulation time
-           (purple: early, yellow: late).
-           All five Lagrange points are labelled; Earth (red circle)
-           and Moon (blue circle) are at the deep potential minima.
-           The spiral convergence to L4 (gold diamond) is clearly
-           visible as a tightening inward spiral.}
-  \label{fig:2d}
-\end{figure}
+\end{figure*}
 
 \subsection{Accuracy}
 
@@ -445,8 +441,13 @@ in \cite{diventra2022} and the classical treatment of the restricted
 three-body problem in \cite{szebehely1967}.
 
 %=============================================================================
+\clearpage
+\onecolumn
 \bibliographystyle{unsrt}
 \begin{thebibliography}{9}
+\setlength{\itemsep}{2pt}
+\setlength{\parsep}{0pt}
+\setlength{\parskip}{0pt}
 
 \bibitem{diventra2022}
 M.~Di Ventra,

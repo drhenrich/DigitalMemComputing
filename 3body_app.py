@@ -27,9 +27,9 @@ def lagrange_points(mu):
     return {"L1": L1, "L2": L2, "L3": L3, "L4": L4, "L5": L5}
 
 DEFAULT_STARTS = {
-    "L1": ( 0.05,  0.02),
-    "L2": ( 0.08,  0.02),
-    "L3": (-0.08,  0.02),
+    "L1": ( 0.03,  0.00),
+    "L2": ( 0.04,  0.00),
+    "L3": (-0.04,  0.00),
     "L4": ( 0.20, -0.30),
     "L5": ( 0.20,  0.30),
 }
@@ -97,6 +97,8 @@ def simulate(mu, start, alpha, beta, mem_cap, gamma, dt, max_steps):
         gx = pos[0] - (1-mu)*(pos[0]-x1)/r1**3 - mu*(pos[0]-x2)/r2**3
         gy = pos[1] - (1-mu)* pos[1]      /r1**3 - mu* pos[1]      /r2**3
         gn = np.sqrt(gx*gx + gy*gy)
+        if gn > 20.0:                        # clip runaway gradients near primaries
+            gx *= 20.0 / gn; gy *= 20.0 / gn; gn = 20.0
         sm = (1-alpha)*sm + alpha*gn
         lm = min(lm + beta*sm*dt, mem_cap)
         accel = (np.array([2*vel[1], -2*vel[0]])
@@ -277,7 +279,7 @@ plt.tight_layout()
 st.pyplot(fig2d, use_container_width=True)
 
 # ── Memory dynamics ────────────────────────────────────────────────────────────
-if show_mem and n > 0:
+if show_mem and n > 1:
     sx = np.arange(len(sl)) * 10
     fig_m, ax = plt.subplots(figsize=(11, 3.4))
     ax2 = ax.twinx()
@@ -286,7 +288,7 @@ if show_mem and n > 0:
     l3, = ax2.semilogy(sx, np.clip(gl,1e-10,None),
                         color="seagreen", lw=1.1, alpha=0.85, label="|∇Ω|")
     ax2.axhline(1e-6, ls="--", color="seagreen", lw=0.8, alpha=0.5)
-    if conv:
+    if conv is not None:
         ax.axvline(conv, ls=":", color="grey", lw=1.2, label=f"Converged @ {conv:,}")
     ax.set_xlabel("Simulation step"); ax.set_ylabel("Memory value")
     ax2.set_ylabel("|∇Ω|  (log)", color="seagreen")
