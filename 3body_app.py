@@ -83,7 +83,8 @@ with st.sidebar:
     run = st.button(f"▶  Find {target}", type="primary", use_container_width=True)
 
 # ── Simulation ─────────────────────────────────────────────────────────────────
-def simulate(mu, start, alpha, beta, mem_cap, gamma, dt, max_steps):
+def simulate(mu, start, alpha, beta, mem_cap, gamma, dt, max_steps,
+             collinear=False):
     x1, x2 = -mu, 1-mu
     eps = 1e-8
     pos = np.array(start, dtype=float)
@@ -92,12 +93,16 @@ def simulate(mu, start, alpha, beta, mem_cap, gamma, dt, max_steps):
     traj, sl, ll, gl = [], [], [], []
     conv = None
     for step in range(max_steps):
+        if collinear:               # L1/L2/L3: constrain to x-axis
+            pos[1] = 0.0; vel[1] = 0.0
         r1 = np.sqrt((pos[0]-x1)**2 + pos[1]**2) + eps
         r2 = np.sqrt((pos[0]-x2)**2 + pos[1]**2) + eps
         gx = pos[0] - (1-mu)*(pos[0]-x1)/r1**3 - mu*(pos[0]-x2)/r2**3
         gy = pos[1] - (1-mu)* pos[1]      /r1**3 - mu* pos[1]      /r2**3
         gn = np.sqrt(gx*gx + gy*gy)
-        if gn > 20.0:                        # clip runaway gradients near primaries
+        if collinear:               # only x-gradient matters on axis
+            gn = abs(gx)
+        if gn > 20.0:
             gx *= 20.0 / gn; gy *= 20.0 / gn; gn = 20.0
         sm = (1-alpha)*sm + alpha*gn
         lm = min(lm + beta*sm*dt, mem_cap)
@@ -167,7 +172,8 @@ if not run:
 start_pos = L_target + np.array([dx, dy])
 with st.spinner(f"DMM finding {target}..."):
     traj, sl, ll, gl, conv, final_pos, final_gn = simulate(
-        mu, start_pos, alpha, beta, mem_cap, gamma, dt, max_steps)
+        mu, start_pos, alpha, beta, mem_cap, gamma, dt, max_steps,
+        collinear=(target in ("L1","L2","L3")))
     xs, ys, X, Y, Om = potential_grid(mu)
     Om_clip = np.clip(Om, 1.4, om_ceil)
 
