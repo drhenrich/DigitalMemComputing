@@ -493,6 +493,7 @@ with tab_disc:
         st.pyplot(fig, use_container_width=True)
 
         st.session_state["last_results"] = results
+        st.session_state["last_sys"] = sys_name
     else:
         st.info(f"Selected: **{sys_name}**  (μ = {mu:.4e})  "
                 f"— press **Run DMM Discovery** to start.")
@@ -507,14 +508,22 @@ with tab_disc:
 """)
 
 with tab_mem:
-    if "last_results" in st.session_state:
-        fig2 = plot_memory(st.session_state["last_results"])
+    mem_results = st.session_state.get("last_results")
+    mem_sys     = st.session_state.get("last_sys", "")
+    if mem_results:
+        if mem_sys and mem_sys != sys_name:
+            st.warning(f"Showing results from **{mem_sys}** — run Discovery for {sys_name} to refresh.")
+        fig2 = plot_memory(mem_results)
         st.pyplot(fig2, use_container_width=True)
-        st.caption("Left: clause violation |∇Ω| decays to the threshold along every trajectory. "
-                   "Right: long-term memory w̄_L ratchets upward monotonically — the ratchet "
-                   "property guarantees the machine always terminates at a solution.")
+        st.caption(
+            "**Left / Middle:** per-axis long-term memory ratchets — "
+            "ẇ_L^x = β|∂Ω/∂x|, ẇ_L^y = β|∂Ω/∂y|. "
+            "Each axis integrates the gradient magnitude directly; memory only grows, never shrinks. "
+            "**Right:** clause violation |∇Ω| decays monotonically to the convergence threshold. "
+            "Color = which Lagrange point the trajectory converged to."
+        )
     else:
-        st.info("Run a discovery first (Discovery tab).")
+        st.info("Run a discovery first (Discovery tab → ▶ Run DMM Discovery).")
 
 with tab_overview:
     st.subheader("All solar system two-body pairs — analytical Lagrange point positions")
