@@ -105,7 +105,8 @@ L4/L5 stability requires μ < 0.03852 (Routh's criterion). Earth–Moon μ = 0.0
 
 | File | Description |
 |------|-------------|
-| `dmm_discovery.py` | **Main app** — discovers all 5 L-points from a grid, no prior knowledge |
+| `dmm_discovery.py` | **Earth-Moon app** — discovers all 5 L-points from a grid, no prior knowledge |
+| `solar_system_dmm.py` | **Solar system app** — 23 two-body pairs: Sun–planets and planet–moon systems |
 | `3body_app.py` | Earlier app — single L-point targeting with interactive 3D surface |
 | `dmm_lagrange.tex` | Scientific article (LaTeX, two-column) |
 | `requirements.txt` | Python dependencies |
@@ -120,8 +121,11 @@ L4/L5 stability requires μ < 0.03852 (Routh's criterion). Earth–Moon μ = 0.0
 ```bash
 pip install -r requirements.txt
 
-# Discovery simulation — all 5 L-points, no prior knowledge
+# Earth-Moon discovery — all 5 L-points, no prior knowledge
 streamlit run dmm_discovery.py
+
+# Full solar system — 23 two-body pairs, all Lagrange points
+streamlit run solar_system_dmm.py
 
 # Earlier single-point app with interactive 3D surface
 streamlit run 3body_app.py
