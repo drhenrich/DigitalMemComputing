@@ -150,7 +150,7 @@ def simulate_dmm(mu, start, alpha, beta, mem_cap, gamma, dt, max_steps, conv_thr
     vel = np.zeros(2)
     lmx = lmy = 1.0
     traj = [pos.copy()]
-    lm_hist = [1.0]
+    lm_hist = [(lmx, lmy)]   # record per-axis: list of (w_L^x, w_L^y)
     gn_hist = []
     conv_step = None
     for step in range(max_steps):
@@ -167,7 +167,7 @@ def simulate_dmm(mu, start, alpha, beta, mem_cap, gamma, dt, max_steps, conv_thr
         pos = pos + vel * dt
         if step % 20 == 0:
             traj.append(pos.copy())
-            lm_hist.append((lmx + lmy) / 2)
+            lm_hist.append((lmx, lmy))
             gn_hist.append(gn)
         if gn < conv_thr:
             conv_step = step
@@ -290,9 +290,9 @@ def plot_trajectories(results, analytic, mu, sma_m, p1_name, p2_name, stable):
 
 
 def plot_memory(results):
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 4))
     fig.patch.set_facecolor("#0f0f1a")
-    for ax in (ax1, ax2):
+    for ax in (ax1, ax2, ax3):
         ax.set_facecolor("#0f0f1a")
         ax.tick_params(colors="white")
         ax.spines[:].set_color("#555")
@@ -304,24 +304,35 @@ def plot_memory(results):
         if r["label"] is None or len(r["gn_hist"]) < 3:
             continue
         col = L_COLORS[r["label"]]
-        steps = np.arange(len(r["gn_hist"])) * 20
-        ax1.semilogy(steps, r["gn_hist"], color=col, lw=0.7, alpha=0.45)
-        steps2 = np.arange(len(r["lm_hist"])) * 20
-        ax2.plot(steps2, r["lm_hist"], color=col, lw=0.7, alpha=0.45)
+        lm = r["lm_hist"]          # shape (N, 2): columns are (w_L^x, w_L^y)
+        steps = np.arange(len(lm)) * 20
 
+        ax1.plot(steps, lm[:, 0], color=col, lw=0.7, alpha=0.45)
+        ax2.plot(steps, lm[:, 1], color=col, lw=0.7, alpha=0.45)
+
+        gsteps = np.arange(len(r["gn_hist"])) * 20
+        ax3.semilogy(gsteps, r["gn_hist"], color=col, lw=0.7, alpha=0.45)
+
+    # legend proxy
     for name, col in L_COLORS.items():
         ax1.plot([], [], color=col, lw=1.8, label=name)
 
-    ax1.axhline(1e-4, color="white", lw=0.8, ls="--", alpha=0.5, label="threshold")
     ax1.set_xlabel("Integration step", fontsize=10)
-    ax1.set_ylabel("|∇Ω|  (log)", fontsize=10)
-    ax1.set_title("Clause Violation → 0", fontsize=11)
+    ax1.set_ylabel("w_L^x", fontsize=10)
+    ax1.set_title("x-Memory Ratchet  (ẇ_L^x = β|∂Ω/∂x|)", fontsize=10)
     ax1.legend(fontsize=8, facecolor="#1a1a2e", edgecolor="#555", labelcolor="white")
-    ax1.set_ylim(bottom=1e-6)
 
     ax2.set_xlabel("Integration step", fontsize=10)
-    ax2.set_ylabel("Memory  w̄_L", fontsize=10)
-    ax2.set_title("Memory Ratchet Growth", fontsize=11)
+    ax2.set_ylabel("w_L^y", fontsize=10)
+    ax2.set_title("y-Memory Ratchet  (ẇ_L^y = β|∂Ω/∂y|)", fontsize=10)
+
+    ax3.axhline(1e-4, color="white", lw=0.8, ls="--", alpha=0.5, label="threshold")
+    ax3.set_xlabel("Integration step", fontsize=10)
+    ax3.set_ylabel("|∇Ω|  (log scale)", fontsize=10)
+    ax3.set_title("Gradient Decay → 0", fontsize=10)
+    ax3.set_ylim(bottom=1e-6)
+    ax3.legend(fontsize=8, facecolor="#1a1a2e", edgecolor="#555", labelcolor="white")
+
     plt.tight_layout()
     return fig
 
