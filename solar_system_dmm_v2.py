@@ -448,7 +448,7 @@ with st.sidebar:
     st.divider()
     st.subheader("DMM parameters")
     alpha    = st.slider("Short-term memory α", 0.01, 0.30, 0.05, 0.01)
-    beta     = st.slider("Long-term ratchet β", 0.0001, 0.005, 0.001, 0.0001, format="%.4f")
+    beta     = st.slider("Long-term ratchet β", 0.0, 1.0, 0.001, 0.001, format="%.3f")
     mem_cap  = st.slider("Memory cap w_cap", 2.0, 15.0, 8.0, 0.5)
     gamma    = st.slider("Damping γ", 0.1, 1.5, 0.6, 0.05)
     dt       = st.select_slider("Time step dt", [0.005, 0.01, 0.02], value=0.01)
