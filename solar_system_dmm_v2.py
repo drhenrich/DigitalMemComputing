@@ -195,19 +195,26 @@ def run_discovery(mu, alpha, beta, mem_cap, gamma, dt, max_steps, conv_thr, n_x,
     excl_primary   = min(0.03, 0.3 * hill_r)
     excl_secondary = min(0.012, 0.3 * hill_r)
 
-    # Anchor x-starts near each collinear L-point (offset by 20% of Hill radius)
+    # ── Exactly n_x x-values: (n_x−6) uniform fill + 6 anchors near L-points ──
     offset = max(0.5 * hill_r, 0.02)
-    anchors_x = [
+    anchors_x = np.array([
         L1x - offset, L1x + offset,
         L2x - offset, L2x + offset,
-        L3x - 0.04,  L3x + 0.04,
-    ]
-    xs_u = np.linspace(-1.4, 1.4, max(n_x - len(anchors_x), 5))
-    xs = np.sort(np.unique(np.concatenate([xs_u, anchors_x])))
+        L3x - 0.04,   L3x + 0.04,
+    ])
+    n_fill = max(n_x - 6, 1)
+    fill_x = np.linspace(-1.4, 1.4, n_fill)
+    xs = np.sort(np.unique(np.round(
+        np.concatenate([fill_x, anchors_x]), 8)))[:n_x]
 
-    ys_neg = np.linspace(-1.2, -0.15, max(n_y // 2 - 1, 3))
-    ys_pos = np.linspace(0.15, 1.2, max(n_y // 2 - 1, 3))
-    ys = np.concatenate([ys_neg, [-0.05, 0.0, 0.05], ys_pos])
+    # ── Exactly n_y y-values: 3 below + fine layer (−0.05, 0, +0.05) + 4 above ─
+    n_neg = (n_y - 3) // 2
+    n_pos = n_y - 3 - n_neg
+    ys = np.sort(np.unique(np.concatenate([
+        np.linspace(-1.2, -0.15, max(n_neg, 1)),
+        [-0.05, 0.0, 0.05],
+        np.linspace(0.15, 1.2, max(n_pos, 1)),
+    ])))[:n_y]
 
     results = []
     for x in xs:
@@ -454,8 +461,8 @@ with st.sidebar:
     dt       = st.select_slider("Time step dt", [0.005, 0.01, 0.02], value=0.01)
     max_steps= st.select_slider("Max steps", [50_000, 100_000, 200_000, 400_000], value=200_000)
     conv_thr = st.select_slider("Convergence |∇Ω| <", [1e-3, 5e-4, 1e-4, 1e-5], value=1e-4)
-    n_x = st.slider("Grid points x (+ 3 anchors)", 4, 18, 7)
-    n_y = st.slider("Grid points y (+ fine y=0 layer)", 4, 16, 8)
+    n_x = st.slider("x grid size  (6 anchors + fill)", 7, 18, 10)
+    n_y = st.slider("y grid size  (fine y=0 layer included)", 6, 18, 10)
 
 # ── Main tabs ──────────────────────────────────────────────────────────────────
 tab_disc, tab_mem, tab_overview = st.tabs(

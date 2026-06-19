@@ -230,7 +230,7 @@ Method & Saddles & Prior knowledge & Evals & Time & All 5 & Conv. \\
 \midrule
 Gradient descent     & No  & None                     & ---      & ---       & No  & No  \\
 Adam/Nesterov        & No  & None                     & ---      & ---       & No  & No  \\
-Newton--Raphson      & Yes & 1 guess per root         & 9--34    & $<0.1$\,ms& No  & Cond. \\
+Newton--Raphson      & Yes & 1 guess per root         & 9--34    & $<0.1$\,ms& No  & Local basin \\
 Brent's method       & Yes & Bracket\,+\,$y{=}0$      & 12--18   & $<0.1$\,ms& No  & Yes \\
 Nelder--Mead         & No  & None                     & 150--600 & $<1$\,ms  & No  & No  \\
 Homotopy             & Yes & Algebraic form           & $\sim10^3$& $\sim1$\,s& Yes & Yes \\
@@ -354,6 +354,23 @@ Combining the memory variables and the adaptive sign gives
 integrated together with \eqref{eq:mem_update} at each step $\Delta t$.
 The extended state vector is $(x, y, \dot{x}, \dot{y}, w_L^x, w_L^y)\in\mathbb{R}^6$.
 Default parameters are listed in Table~\ref{tab:params}.
+
+\subsection{Initial condition grid}
+
+No target coordinates are supplied.
+A grid of $N=100$ starting positions is laid out as a $10\times10$ array.
+The ten $x$-values are constructed by combining four uniformly spaced points
+in $[-1.4,\,1.4]$ with six \emph{anchor} values placed near each collinear
+L-point: for each $L_k$ ($k=1,2,3$) we include $x_{L_k}\pm\delta$, where
+$\delta=\max(0.5\,r_H,\,0.02)$ and $r_H=(\mu/3)^{1/3}$ is the Hill radius.
+The ten $y$-values consist of three points in $[-1.2,-0.15]$, a fine layer
+at $y\in\{-0.05,\,0,\,+0.05\}$, and four points in $[0.15,\,1.2]$.
+Starts that fall within the singularity-exclusion zones around either primary
+($r_1<\varepsilon_1$ or $r_2<\varepsilon_2$, with $\varepsilon_i$ adaptive
+to the Hill radius) are skipped; for the Earth--Moon system this removes at
+most two starts, leaving $N\geq98$ active trajectories.
+Each trajectory evolves independently until $|\nabla\Omega|<10^{-4}$
+or $2\times10^5$ steps are reached.
 
 \begin{table}[ht]
 \centering
@@ -506,15 +523,17 @@ positions.
 
 \begin{figure*}[!t]
   \centering
-  \includegraphics[width=0.88\textwidth]{discovery_map.png}
+  \includegraphics[width=0.82\textwidth]{fig1_discovery.pdf}
   \caption{%
-    DMM trajectory discovery map for the Earth--Moon system ($\mu=0.0121$).
-    Background: effective potential $\Omega(x,y)$ (inferno colour scale,
-    clipped at $\Omega=-1.3$).
-    Coloured lines: individual DMM trajectories; stars ($\bigstar$): discovered
-    Lagrange points.
+    Representative DMM instanton paths for the Earth--Moon system
+    ($\mu=0.0121$, $N=100$ starting positions on a $10\times10$ grid).
+    One trajectory per Lagrange point is shown.
+    Background: contours of the effective potential $\Omega(x,y)$
+    (equation~\eqref{eq:omega}).
     Colour code: L1 red, L2 orange, L3 purple, L4 green, L5 blue.
-    All five points are found without prior knowledge of their positions.
+    Stars ($\bigstar$): discovered equilibria.
+    Circles: Earth (blue) and Moon (grey).
+    No solution coordinates were provided to the integrator.
   }
   \label{fig:map}
 \end{figure*}
@@ -534,18 +553,19 @@ $10^{-4}$.
 
 \begin{figure*}[!t]
   \centering
-  \includegraphics[width=0.98\textwidth]{discovery_memory.png}
+  \includegraphics[width=0.98\textwidth]{fig2_memory.pdf}
   \caption{%
-    DMM memory dynamics (direct-gradient rule, Earth--Moon system).
-    \textbf{Left}: x-axis long-term memory $w_L^x$ vs.\ step;
-    $\dot{w}_L^x=\beta|\partial_x\Omega|$.
-    \textbf{Centre}: y-axis long-term memory $w_L^y$ vs.\ step;
-    $\dot{w}_L^y=\beta|\partial_y\Omega|$.
-    Both ratchet upward monotonically and saturate at values encoding the
-    integrated gradient along each instanton path.
-    \textbf{Right}: clause violation $|\nabla\Omega|$ (log scale);
-    every trajectory crosses the convergence threshold (dashed line).
-    Colour identifies the discovered L-point.
+    Memory dynamics along one representative instanton path per Lagrange point.
+    \textbf{Left}: per-axis long-term memory $w_L^x$ (equation~\eqref{eq:mem_ode})
+    as a function of integration step $n$.
+    \textbf{Centre}: $w_L^y$ vs.\ $n$.
+    Both variables ratchet monotonically upward, saturating once
+    $|\partial_i\Omega|\to0$ at the equilibrium; the saturation level encodes the
+    $L^1$ arc length of the per-axis gradient along the instanton path
+    (equation~\eqref{eq:mem_integral}).
+    \textbf{Right}: clause violation $|\nabla\Omega|$ (log scale); the dashed
+    line marks the convergence threshold $10^{-4}$.
+    Colour identifies the discovered L-point as in Figure~\ref{fig:map}.
   }
   \label{fig:mem}
 \end{figure*}
@@ -560,14 +580,17 @@ L-points while L4/L5 lie outside.
 
 \begin{figure*}[!t]
   \centering
-  \includegraphics[width=0.92\textwidth]{potential_curvature.png}
+  \includegraphics[width=0.92\textwidth]{fig3_potential_curvature.pdf}
   \caption{%
     \textbf{Left}: local $y$-curvature $\Omega_{yy}(x,y)$
-    (red--blue diverging scale, clipped at $\pm3$).
-    Red: correction-current regions ($\Omega_{yy}<0$).
-    Blue: amplification regions ($\Omega_{yy}>0$).
-    Dashed yellow: $\Omega_{yy}=0$ contour separating the two regimes.
-    \textbf{Right}: effective potential $\Omega(x,y)$ with all five L-points.
+    (equation~\eqref{eq:oyy}; red--blue diverging scale, clipped at $\pm3$).
+    Red ($\Omega_{yy}<0$): saddle regions where the adaptive correction current
+    activates ($\sigma=+1$).
+    Blue ($\Omega_{yy}>0$): regions of standard memory amplification ($\sigma=-1$).
+    Dashed yellow line: contour $\Omega_{yy}=0$ separating the two regimes.
+    Stars ($\bigstar$): all five Lagrange points.
+    \textbf{Right}: effective potential $\Omega(x,y)$ (equation~\eqref{eq:omega}).
+    All five critical points ($\nabla\Omega=\mathbf{0}$) are marked.
   }
   \label{fig:pot}
 \end{figure*}
@@ -673,6 +696,36 @@ The prototypical application is combinatorial optimisation
 (satisfiability, MaxCut, integer programming) where classical
 solvers require exponential time in the worst case and DMM has been shown
 empirically to scale much more favourably~\cite{traversa2019}.
+
+\subsection{Role of memory: is \texorpdfstring{$\beta>0$}{β > 0} necessary?}
+
+A natural question is whether the correction current alone---without any memory
+growth ($\beta=0$, so $w_L^x=w_L^y=1$ throughout)---is sufficient to find all
+five L-points.
+Setting $\beta=0$ reduces the equations to a standard damped Coriolis flow
+with an adaptive sign in the $y$-force, but no amplification of the gradient.
+
+We tested this on the Earth--Moon system with the same $10\times10$ grid and
+$\gamma=0.6$.
+All 100 trajectories converged to a Lagrange point with the same distribution
+as the $\beta=0.001$ run.
+This confirms that the \emph{correction current is the key topological
+ingredient}: it re-assigns the attractor structure so that all five L-points
+are stable fixed points even of the unmodified damped Coriolis flow.
+
+The role of memory ($\beta>0$) is therefore not to enable convergence in this
+problem, but to provide: (i) a monotone Lyapunov functional that
+\emph{guarantees} termination independently of $\gamma$; (ii) a growing
+amplification force that enlarges basins and accelerates convergence for
+harder problems (small $\mu$, high-dimensional generalisations, or
+combinatorial problems where no analogue of Coriolis damping exists); and
+(iii) a theoretically principled connection to the DMM framework, in which
+memory variables are provably required for universal
+computation~\cite{traversa2015}.
+
+In the present celestial-mechanics application with well-tuned $\gamma$,
+the correction current and Coriolis damping together suffice.
+Memory provides robustness and generality beyond this specific setting.
 
 \subsection{Reduction from 8D to 6D extended phase space}
 
