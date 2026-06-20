@@ -14,3 +14,9 @@ __pycache__/
 
 # stray local test artifact
 memory_v2_test.png
+
+# unrelated projects / data sitting in this folder
+FromNotebookLM/
+FromNotebookLM.zip
+blindenhund_v5/
+path_planner_dmm/
