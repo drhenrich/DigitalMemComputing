@@ -118,6 +118,9 @@ with tab_surv:
 - Try switching **L4 → L1** (watch survival collapse — saddles are unstable), or
   toggling **all 8 planets** (outer-planet perturbations slowly erode survival,
   most visibly for inner-planet hosts and over long integrations).
+- **Caveat on L3:** it *is* an unstable saddle, but its instability timescale is
+  long — short integrations can show it deceptively surviving. Increase the
+  integration time (e.g. > 1000 host orbits) to watch it erode.
 """)
 
 with tab_phys:
