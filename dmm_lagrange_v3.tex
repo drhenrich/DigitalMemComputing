@@ -156,7 +156,23 @@ all three collinear points (e.g.\ for Earth--Moon, $\mu=0.0121$:
 $\Omega_{yy}=-4.15,-2.19,-0.011$ at $L_1,L_2,L_3$) and \emph{positive}
 ($+2.25$) at $L_{4,5}$. Thus $\operatorname{sign}\Omega_{yy}$ distinguishes
 saddles from curvature-maxima using only information available at the current
-point---no knowledge of the solution locations.
+point---no knowledge of the solution locations
+(Fig.~\ref{fig:curv}).
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.92\textwidth]{fig_v3_curvature.pdf}
+  \caption{%
+    \textbf{Left}: transverse curvature $\Omega_{yy}(x,y)$ of the effective
+    potential, Eq.~\eqref{eq:oyy}, for the Earth--Moon mass ratio
+    (red--blue, clipped at $\pm3$). Red regions ($\Omega_{yy}<0$) are where the
+    correction current activates ($\sigma=+1$, Eq.~\eqref{eq:sigma}); the dashed
+    line is the contour $\Omega_{yy}=0$. \textbf{Right}: the effective potential
+    $\Omega(x,y)$, Eq.~\eqref{eq:omega}. Stars mark the five Lagrange points;
+    the three collinear ones lie in the red ($\Omega_{yy}<0$) saddle region,
+    $L_{4,5}$ in the blue region.}
+  \label{fig:curv}
+\end{figure*}
 
 %=============================================================================
 \section{The natural ansatz, and why its memory is inert}\label{sec:inert}
@@ -428,6 +444,34 @@ damping, memory-as-dissipation finds all five, with $94/100$ trajectories
 converging. The memory is therefore necessary for convergence: it is doing the
 computation.
 
+Figure~\ref{fig:energy} makes the mechanism explicit. For a single initial
+condition we plot the kinetic energy $T(t)$ under both formulations with no
+external damping. Under the multiplier ansatz ($\gamma=0$) $T$ stays
+$\mathcal O(1)$ and even grows---consistent with Proposition~\ref{prop:inert},
+the memory ratchet pumps energy in and the trajectory never settles. Under
+memory-as-dissipation ($\gamma_0=0$) the same initial condition relaxes: the
+memory $m$ and the dissipation $\gamma_{\rm eff}=\kappa m$ it generates ramp up
+from zero as the violation accumulates (right panel), driving $T$ monotonically
+to zero and $\lVert\nabla\Omega\rVert$ below threshold.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.96\textwidth]{fig_v3_energy.pdf}
+  \caption{%
+    Why the memory now computes, for one representative initial condition with
+    \emph{no} external damping. \textbf{Left}: kinetic energy
+    $T=\tfrac12\lVert\dot{\mathbf r}\rVert^2$ (log scale). Under the multiplier
+    ansatz \eqref{eq:nx}--\eqref{eq:wmem} with $\gamma=0$ (red), $T$ remains
+    $\mathcal O(1)$ and grows---the memory cannot dissipate
+    (Proposition~\ref{prop:inert}). Under memory-as-dissipation
+    \eqref{eq:vx}--\eqref{eq:geff} with $\gamma_0=0$ (green), $T\to0$.
+    \textbf{Right}: for the green run, the memory $m$ (solid) and the damping
+    $\gamma_{\rm eff}=\kappa m$ (dashed) ratchet up from zero and saturate, while
+    the clause violation $\lVert\nabla\Omega\rVert$ (grey, right axis) decays to
+    the threshold.}
+  \label{fig:energy}
+\end{figure*}
+
 \begin{table}[ht]
 \centering
 \caption{Memory-as-dissipation \eqref{eq:vx}--\eqref{eq:geff} with
@@ -447,13 +491,26 @@ Multiplier, $\gamma_0{=}0$ & none (inert) & $0$--$1/5$ & $\le2/100$\\
 
 \subsection{Robustness across mass ratios}
 
-Table~\ref{tab:solar} applies \eqref{eq:vx}--\eqref{eq:geff} unchanged
-($\gamma_0=0$, $\kappa=1$, $\beta=0.5$) to representative systems. All five
-points are recovered for $\mu\gtrsim3\times10^{-6}$. At
-$\mu=1.65\times10^{-7}$ (Sun--Mercury) the corotation-ridge degeneracy of
-Sec.~\ref{sec:refine} costs the innermost collinear point ($L_2$), giving
-$4/5$; the ``rejected'' trajectories are those that halt on the ridge. We report
-this limit explicitly rather than claiming uniform success.
+Figure~\ref{fig:disc} shows representative instanton paths---one per
+equilibrium---for Earth--Moon. Table~\ref{tab:solar} applies
+\eqref{eq:vx}--\eqref{eq:geff} unchanged ($\gamma_0=0$, $\kappa=1$,
+$\beta=0.5$) to representative systems. All five points are recovered for
+$\mu\gtrsim3\times10^{-6}$. At $\mu=1.65\times10^{-7}$ (Sun--Mercury) the
+corotation-ridge degeneracy of Sec.~\ref{sec:refine} costs the innermost
+collinear point ($L_2$), giving $4/5$; the ``rejected'' trajectories are those
+that halt on the ridge. We report this limit explicitly rather than claiming
+uniform success.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.99\columnwidth]{fig_v3_discovery.pdf}
+  \caption{%
+    Representative memory-as-dissipation trajectories for Earth--Moon
+    ($\mu=0.0121$), one per Lagrange point, from a $10\times10$ grid of
+    starts. Grey curves: level sets of $\Omega$. Stars: the discovered
+    equilibria. No solution coordinates are supplied to the integrator.}
+  \label{fig:disc}
+\end{figure}
 
 \begin{table}[ht]
 \centering

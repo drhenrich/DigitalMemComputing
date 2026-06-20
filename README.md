@@ -145,12 +145,14 @@ L4/L5 stability requires μ < 0.03852 (Routh's criterion).
 
 | File | Description |
 |------|-------------|
-| `solar_system_dmm_v2.py` | **Main app v2** — direct-gradient memory, 23 solar system pairs |
+| `solar_system_dmm_v3.py` | **Main app v3** — memory-as-dissipation (memory is load-bearing) |
+| `dmm_lagrange_v3.tex` / `.pdf` | **Current paper** — equations + rationale, honest robustness |
+| `generate_v3_figures.py` | Reproduces the v3 paper figures (PDF) |
+| `diagnose_concerns.py`, `explore_sigma_memory.py`, `test_v3_core.py` | Validation scripts (all paper numbers reproducible) |
+| `solar_system_dmm_v2.py` | App v2 — direct-gradient memory **multiplier** (now known to be inert) |
 | `solar_system_dmm.py` | Solar system app v1 — two-stage memory (α + β) |
 | `dmm_discovery.py` | Earth–Moon only app — original discovery simulation |
 | `3body_app.py` | Earlier app — single L-point targeting with interactive 3D surface |
-| `dmm_lagrange.tex` | Scientific article (LaTeX, two-column, 8 pages) |
-| `dmm_lagrange.pdf` | Compiled PDF |
 | `requirements.txt` | Python dependencies |
 
 ---
@@ -160,15 +162,33 @@ L4/L5 stability requires μ < 0.03852 (Routh's criterion).
 ```bash
 pip install -r requirements.txt
 
-# Solar system v2 — direct-gradient memory, 23 two-body pairs
+# v3 — memory-as-dissipation (current, memory genuinely load-bearing)
+streamlit run solar_system_dmm_v3.py
+
+# v2 — direct-gradient memory multiplier (kept for comparison; memory is inert here)
 streamlit run solar_system_dmm_v2.py
 
-# Solar system v1 — two-stage memory
-streamlit run solar_system_dmm.py
-
-# Earth–Moon only
+# Earth–Moon only (original)
 streamlit run dmm_discovery.py
 ```
+
+### What changed in v3, and why
+
+The earlier versions used a memory variable that **multiplied the gradient
+force**. An energy identity (paper, Prop. 1) shows that such a memory is
+**dynamically inert** — a growing multiplier on a conservative force can only
+exchange energy with the potential, never dissipate it. Empirically, setting the
+growth rate β=0 changed nothing, and with the damping γ=0 the system failed for
+every β: the *damping* was doing the work, not the memory.
+
+**v3 fix:** the memory now controls the **dissipation** instead,
+`γ_eff = γ₀ + κ·m` with `ṁ = β·‖∇Ω‖`. With **γ₀=0** the memory is the *only*
+source of dissipation and is provably load-bearing — it drives convergence to
+all 5 points where the multiplier formulation finds 0–1. The curvature-adaptive
+correction current `σ = sign(−Ω_yy)` turns the collinear saddles into
+attractors. Honest limit: for μ ≲ 10⁻⁵ (e.g. Sun–Mercury) the corotation-ridge
+degeneracy of the potential makes the collinear points hard to resolve, and the
+method may return <5/5 — documented, not hidden.
 
 Open [http://localhost:8501](http://localhost:8501). Select a system category and pair in the sidebar, adjust β, memory cap, damping and grid density, then click **▶ Run DMM Discovery**.
 
