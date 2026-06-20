@@ -122,12 +122,14 @@ def lpoints_heliocentric(name, year):
     u = np.array([np.cos(th), np.sin(th)])           # Sun->planet unit vector
     P = a*u
     rH = a*(mu/3)**(1/3)
-    L1x, L2x, L3x = analytic_collinear(mu)            # normalized (planet at 1-mu)
-    # collinear points sit on the Sun-planet line at normalized x -> physical radius a*x
+    L1x, L2x, L3x = analytic_collinear(mu)             # BARYCENTRIC roots (Sun at -mu)
+    # convert barycentric x_L to heliocentric distance from the Sun: x_helio = x_L + mu
+    # (signed: x_helio*u places L3 on the opposite side automatically). The a*mu
+    # correction matters — for Jupiter it is ~742,000 km.
     pts = {
-        "L1": a*L1x*u,
-        "L2": a*L2x*u,
-        "L3": a*L3x*u,
+        "L1": a*(L1x+mu)*u,
+        "L2": a*(L2x+mu)*u,
+        "L3": a*(L3x+mu)*u,
         "L4": a*np.array([np.cos(th+np.pi/3), np.sin(th+np.pi/3)]),
         "L5": a*np.array([np.cos(th-np.pi/3), np.sin(th-np.pi/3)]),
     }

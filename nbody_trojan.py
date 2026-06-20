@@ -96,8 +96,10 @@ def seed_lpoint(host, which, t0=0.0, dr_au=0.0, dphi_deg=0.0):
         xL = {"L1": brentq(g0,-mu+1e-4,1-mu-1e-4),
               "L2": brentq(g0,1-mu+1e-4,2.5),
               "L3": brentq(g0,-2.5,-mu-1e-4)}[which]
-        ang = th if xL > 0 else th + np.pi
-        rad = a*abs(xL)
+        # Heliocentric coordinate relative to the Sun is x_helio = xL + mu
+        x_helio = xL + mu
+        ang = th if x_helio > 0 else th + np.pi
+        rad = a*abs(x_helio)
     rad += dr_au
     ang += np.radians(dphi_deg)
     r = np.array([rad*np.cos(ang), rad*np.sin(ang)])

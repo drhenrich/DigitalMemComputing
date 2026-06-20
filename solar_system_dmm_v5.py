@@ -84,8 +84,14 @@ with tab_traj:
     # host fixed on +x in co-rotating frame
     ax.plot(a_host,0,"o",color=col,ms=11,zorder=8,markeredgecolor="white",markeredgewidth=0.5)
     ax.annotate(host,(a_host,0),(6,6),textcoords="offset points",color=col,fontsize=9)
-    # L-point markers in co-rot frame
-    for nm,(ang,rad) in {"L4":(60,a_host),"L5":(-60,a_host),"L3":(180,a_host)}.items():
+    # L-point markers in co-rot frame (L3 at its true heliocentric radius a|x_L3+mu|)
+    from scipy.optimize import brentq as _bq
+    _mu = N.q(host)/(1+N.q(host))
+    def _g0(x):
+        r1=abs(x+_mu)+1e-12; r2=abs(x-1+_mu)+1e-12
+        return x-(1-_mu)*(x+_mu)/r1**3-_mu*(x-1+_mu)/r2**3
+    _L3 = abs(_bq(_g0,-2.5,-_mu-1e-4)+_mu)*a_host
+    for nm,(ang,rad) in {"L4":(60,a_host),"L5":(-60,a_host),"L3":(180,_L3)}.items():
         x=rad*np.cos(np.radians(ang)); y=rad*np.sin(np.radians(ang))
         ax.plot(x,y,"*",color="white",ms=12,zorder=7); ax.annotate(nm,(x,y),(5,5),textcoords="offset points",color="white",fontsize=8)
     # trajectories
