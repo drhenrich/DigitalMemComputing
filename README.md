@@ -246,6 +246,7 @@ This is the dynamical face of the curvature sign $\Omega_{yy}$ that v3 reads.
 | `streamlit_app.py` | Default deploy entry point → launches the v4 solar-system map |
 | `solar_system_dmm_v3.py` | The app: memory-as-dissipation across 23 two-body systems |
 | `dmm_lagrange_v3.tex` / `.pdf` | Paper — full equations, rationale, proofs, limitations |
+| `dmm_lagrange_stability.tex` / `.pdf` | Extended edition — adds an N-body Trojan stability cross-check section |
 | `generate_v3_figures.py` | Reproduces the figures above (PDF + PNG) |
 | `diagnose_concerns.py`, `explore_sigma_memory.py`, `test_v3_core.py` | Validation scripts — every number here is reproducible |
 | `requirements.txt` | numpy, scipy, matplotlib, streamlit, plotly |
