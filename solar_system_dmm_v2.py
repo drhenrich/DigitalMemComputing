@@ -473,21 +473,38 @@ with tab_disc:
     run = st.button("▶  Run DMM Discovery", type="primary", use_container_width=True)
 
     if run:
-        total = n_x * (n_y + 3)
-        with st.spinner(f"Running {total} DMM trajectories for {sys_name} …"):
+        with st.spinner(f"Running up to {n_x}×{n_y} = {n_x*n_y} DMM trajectories for {sys_name} …"):
             results, analytic = run_discovery(
                 mu, alpha, beta, mem_cap, gamma, dt, max_steps, conv_thr, n_x, n_y
             )
 
         found = {k: [r for r in results if r["label"] == k] for k in L_COLORS}
+        n_started   = len(results)
+        n_labeled   = sum(1 for r in results if r["label"] is not None)
+        n_unlabeled = n_started - n_labeled
+        n_lpts      = sum(1 for k in L_COLORS if found[k])
 
         st.subheader(f"Discovery results — {sys_name}")
+        st.caption(
+            f"**{n_started}** trajectories launched (one per initial condition, after "
+            f"removing starts inside the singularity-exclusion zones). "
+            f"Each trajectory ends at exactly one point: **{n_labeled}** landed within 0.12 of "
+            f"a Lagrange point, **{n_unlabeled}** ended elsewhere (collapsed near a body or "
+            f"hit a spurious low-gradient region). "
+            f"Multiple initial conditions can flow to the **same** L-point — that is why a "
+            f"single L-point can show many trajectories. "
+            f"**{n_lpts}/5** distinct Lagrange points were located."
+        )
         cols = st.columns(6)
         for i, (name, rs) in enumerate(found.items()):
-            cols[i].metric(name, f"{len(rs)} found",
+            cols[i].metric(name, f"{len(rs)} traj.",
                            delta="stable ✓" if (stable or name not in ("L4","L5")) else "unstable ✗")
-        cols[5].metric("No convergence",
-                       sum(1 for r in results if r["label"] is None))
+        cols[5].metric("Ended elsewhere", n_unlabeled)
+        if n_lpts < 5:
+            st.warning(f"⚠ Only {n_lpts}/5 Lagrange points found with these parameters. "
+                       "Small-μ systems (e.g. Sun–Mercury) have very narrow collinear basins; "
+                       "this method does not reliably resolve all five for every system "
+                       "(see README / paper, robustness discussion).")
 
         df = build_results_table(results, analytic, mu, sma_m, stable, known_objs)
         st.dataframe(df, use_container_width=True, hide_index=True)
