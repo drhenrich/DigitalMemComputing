@@ -1,10 +1,15 @@
 # Digital MemComputing — Lagrange Point Discovery
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://digitalmemcomputing-msoefuhpx3swcae4pzs2xr.streamlit.app)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://8ywc2na6utq2km8ga7xnke.streamlit.app)
 
-👉 **Earth–Moon app (v1):** [digitalmemcomputing-msoefuhpx3swcae4pzs2xr.streamlit.app](https://digitalmemcomputing-msoefuhpx3swcae4pzs2xr.streamlit.app)
+👉 **Live app (v3, memory-as-dissipation):** [8ywc2na6utq2km8ga7xnke.streamlit.app](https://8ywc2na6utq2km8ga7xnke.streamlit.app)
 
-👉 **Solar system app (v2):** [8ywc2na6utq2km8ga7xnke.streamlit.app](https://8ywc2na6utq2km8ga7xnke.streamlit.app)
+The repository's default Streamlit entry point (`streamlit_app.py`) launches the
+v3 app, so any deployment of this repo serves v3 with no configuration. To pin
+the live link above to v3, set its **Main file path** to `streamlit_app.py` in
+the Streamlit Cloud dashboard (see *Deploy* below).
+
+<sub>Older versions: v1 (Earth–Moon) and v2 (force-multiplier memory) remain in the repo for comparison.</sub>
 
 A Python implementation of a **Digital MemComputing Machine (DMM)** that discovers all five Lagrange points of any two-body system in the solar system — **without prior knowledge** of how many solutions exist or where they are.
 
@@ -191,6 +196,21 @@ degeneracy of the potential makes the collinear points hard to resolve, and the
 method may return <5/5 — documented, not hidden.
 
 Open [http://localhost:8501](http://localhost:8501). Select a system category and pair in the sidebar, adjust β, memory cap, damping and grid density, then click **▶ Run DMM Discovery**.
+
+---
+
+## Deploy / update the live app
+
+The repo ships a default entry point, `streamlit_app.py`, which launches v3.
+
+**Pin the existing link to v3** (reuses the current URL):
+1. Open [share.streamlit.io](https://share.streamlit.io) and sign in.
+2. Open the app for this repo → **⋮ → Settings → Main file path**.
+3. Set it to `streamlit_app.py` (or `solar_system_dmm_v3.py`) → **Save**. It redeploys automatically.
+
+**Or deploy fresh:** *New app* → pick `drhenrich/DigitalMemComputing`, branch `main`, main file `streamlit_app.py` → **Deploy**.
+
+Dependencies are already pinned in `requirements.txt` (numpy, scipy, matplotlib, streamlit, plotly).
 
 ---
 
