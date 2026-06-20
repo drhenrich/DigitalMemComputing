@@ -206,6 +206,22 @@ grid), and press **Run**. The *Memory dynamics* tab shows $m$, $\gamma_{\rm eff}
 the kinetic energy $T\to0$, and $\lVert\nabla\Omega\rVert$ — i.e. memory doing
 the work.
 
+### Bonus: all Sun–planet Lagrange points at once (`solar_system_dmm_v4.py`)
+
+```bash
+streamlit run solar_system_dmm_v4.py
+```
+
+![All Sun–planet Lagrange points](fig_v4_solar.png)
+
+A heliocentric snapshot of every Sun–planet pair's five Lagrange points,
+superposed at a chosen epoch (● collinear, ▲ L4 +60°, ▼ L5 −60°). **Important:**
+the full Sun + 8-planet system has **no global Lagrange points** — the planets
+orbit at different rates, so no co-rotating frame freezes them all and no
+time-independent $\Omega$ exists. This view superposes the *per-pair* points
+(each discovered by the v3 DMM and mapped to AU), which is where real objects
+sit — JWST at Sun–Earth $L_2$, the Jupiter Trojans at $L_4/L_5$.
+
 | File | Description |
 |------|-------------|
 | `streamlit_app.py` | Default entry point → launches the v3 app |
