@@ -222,6 +222,24 @@ time-independent $\Omega$ exists. This view superposes the *per-pair* points
 (each discovered by the v3 DMM and mapped to AU), which is where real objects
 sit — JWST at Sun–Earth $L_2$, the Jupiter Trojans at $L_4/L_5$.
 
+### Bonus: which Lagrange points are dynamically *stable*? (`solar_system_dmm_v5.py`)
+
+```bash
+streamlit run solar_system_dmm_v5.py
+```
+
+![Jupiter L4 tadpole librations](fig_v5_trojan.png)
+
+v3 *locates* the equilibria; v5 asks which ones actually **hold particles**. It
+forward-integrates clouds of test particles in the time-dependent field of the
+**Sun + planets** (heliocentric velocity-Verlet *with the indirect term*) and
+shows which survive. $L_4/L_5$ (stable for $\mu<0.03852$) trace **tadpole**
+librations and stay — period $\approx T/\sqrt{27\mu/4}$, ~148 yr for Jupiter,
+matching theory to 0.1% in the validation. The collinear $L_1/L_2/L_3$ (saddles)
+drift away. A toggle switches between "Sun + host planet" (restricted 3-body) and
+"Sun + all 8 planets" (the full time-dependent field) to see the perturbations.
+This is the dynamical face of the curvature sign $\Omega_{yy}$ that v3 reads.
+
 | File | Description |
 |------|-------------|
 | `streamlit_app.py` | Default entry point → launches the v3 app |
