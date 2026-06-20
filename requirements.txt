@@ -1,6 +1,8 @@
-numpy>=1.24,<2.1
-matplotlib>=3.7,<3.10
-streamlit>=1.28,<1.40
-plotly>=5.15,<5.23
-scipy>=1.11,<1.15
-pandas>=2.0,<2.3
+# Unpinned so the resolver picks versions with prebuilt wheels for whatever
+# Python the host uses (Streamlit Cloud currently builds on Python 3.14, which
+# has no wheels for older numpy/matplotlib/pillow -> source builds fail).
+streamlit
+numpy
+scipy
+matplotlib
+pandas
