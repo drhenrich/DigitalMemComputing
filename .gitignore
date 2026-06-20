@@ -11,6 +11,7 @@ __pycache__/
 *.out
 *.toc
 *.synctex.gz
+*Notes.bib
 
 # stray local test artifact
 memory_v2_test.png
@@ -20,3 +21,7 @@ FromNotebookLM/
 FromNotebookLM.zip
 blindenhund_v5/
 path_planner_dmm/
+
+# private submission documents (not for the public repo)
+cover_letter_ajp.tex
+cover_letter_ajp.pdf
