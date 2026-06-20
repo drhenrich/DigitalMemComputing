@@ -2,7 +2,7 @@
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://cibt6y78bubnrhjmev3nbt.streamlit.app)
 
-👉 **Live app:** [cibt6y78bubnrhjmev3nbt.streamlit.app](https://cibt6y78bubnrhjmev3nbt.streamlit.app)
+👉 **Live app** (v4 solar-system map): [cibt6y78bubnrhjmev3nbt.streamlit.app](https://cibt6y78bubnrhjmev3nbt.streamlit.app) — run `solar_system_dmm_v3.py` locally for the discovery method described below.
 
 A continuous dynamical system that locates **all five Lagrange points** of the
 planar restricted three-body problem from generic starting conditions — with no
@@ -198,7 +198,8 @@ zeros), with fall-back to the raw endpoint where Newton is ill-conditioned.
 
 ```bash
 pip install -r requirements.txt
-streamlit run streamlit_app.py        # or: streamlit run solar_system_dmm_v3.py
+streamlit run solar_system_dmm_v3.py   # the method described above (memory-as-dissipation)
+streamlit run streamlit_app.py         # default deploy entry → the v4 solar-system map
 ```
 
 Pick a two-body system in the sidebar, set the controls ($\gamma_0,\kappa,\beta$,
@@ -242,7 +243,7 @@ This is the dynamical face of the curvature sign $\Omega_{yy}$ that v3 reads.
 
 | File | Description |
 |------|-------------|
-| `streamlit_app.py` | Default entry point → launches the v3 app |
+| `streamlit_app.py` | Default deploy entry point → launches the v4 solar-system map |
 | `solar_system_dmm_v3.py` | The app: memory-as-dissipation across 23 two-body systems |
 | `dmm_lagrange_v3.tex` / `.pdf` | Paper — full equations, rationale, proofs, limitations |
 | `generate_v3_figures.py` | Reproduces the figures above (PDF + PNG) |
