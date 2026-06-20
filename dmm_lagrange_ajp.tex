@@ -1,0 +1,705 @@
+% American Journal of Physics submission — REVTeX 4.2
+% (initial-submission manuscript style; swap "reprint" -> "preprint" for a
+%  double-spaced single-column review copy)
+\documentclass[aip,reprint,amsmath,amssymb,floatfix]{revtex4-2}
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsthm}
+\usepackage{hyperref}
+
+\newtheorem{proposition}{Proposition}
+
+\begin{document}
+
+\title{Memory as Dissipation: A Curvature-Adaptive Dynamical Solver for the
+Lagrange Points of the Restricted Three-Body Problem, with an N-body Stability
+Cross-Check}
+
+\author{Dietmar Henrich}
+\affiliation{Chair of Materials Science and Nanotechnology,
+Technische Universit\"{a}t Dresden, 01062 Dresden, Germany}
+
+\author{Massimiliano Di Ventra}
+\affiliation{Department of Physics, University of California San Diego,
+La Jolla, CA 92093, USA}
+
+\begin{abstract}
+We construct a continuous dynamical system that locates the five Lagrange
+equilibria of the planar restricted three-body problem from generic initial
+conditions, and we use it as a controlled setting to ask a precise question:
+\emph{which term in the equations of motion actually performs the
+computation?} We first analyse the natural memcomputing-style ansatz in which a
+monotonically growing memory variable $w_L$ multiplies the gradient force. We
+prove---via an explicit kinetic-energy identity---that this memory is
+\emph{dynamically inert}: a growing multiplier on a conservative force can only
+exchange energy with the potential, never dissipate it, so it cannot drive the
+system to an equilibrium. Numerically, setting the memory growth rate
+$\beta\!=\!0$ leaves the results unchanged, and removing the explicit viscous
+damping makes the system fail for every $\beta$.
+
+We then show how to make memory genuinely load-bearing by folding it into the
+\emph{dissipation} rather than the force: a memory variable $m$ that integrates
+the constraint violation, $\dot m=\beta\lvert\nabla\Omega\rvert$, sets the
+damping coefficient $\gamma_{\rm eff}=\gamma_0+\kappa\,m$. With $\gamma_0=0$ the
+memory becomes the \emph{sole} source of dissipation; it supplies a monotone
+Lyapunov-type functional and drives convergence where the inert formulation
+fails ($0/5\!\to\!5/5$ on Earth--Moon). A curvature-adaptive correction current,
+whose sign is read from the local potential curvature $\Omega_{yy}$, converts
+the three collinear saddle points into attractors of the damped flow. We give
+the full set of equations with the rationale for each term, report honest
+robustness limits (all five points for mass ratios
+$\mu\gtrsim 3\times10^{-6}$; degradation at $\mu\sim10^{-7}$ due to a
+corotation-ridge degeneracy of the potential), and discuss the relationship to
+genuine Digital MemComputing Machines.
+Finally, as an independent dynamical cross-check, we forward-integrate clouds of
+test particles in the time-dependent field of the Sun and planets and confirm
+that the discovered equilibria carry the expected stability: the triangular
+points librate on tadpole orbits (period $147.7$ vs.\ $147.9$\,yr theory for
+Jupiter) while the collinear points disperse, in accordance with Routh's
+criterion. Code:~\cite{github2026}.
+\end{abstract}
+
+\maketitle
+
+%=============================================================================
+\section{Introduction and scope}
+%=============================================================================
+
+Digital MemComputing Machines (DMMs) solve problems by mapping their solutions
+onto the stable fixed points of a continuous dynamical system whose
+\emph{memory} variables act as dynamic Lagrange multipliers, guiding generic
+trajectories to a solution along instanton paths~\cite{diventra2022,
+traversa2015,diventra2018}. A recurring difficulty when transcribing a physics
+problem into such a system is to verify that the memory variables are doing the
+computational work, rather than being carried along by a more conventional
+mechanism (damping, line search, projection).
+
+This paper uses the Lagrange points of the planar restricted three-body problem
+(RTBP) as a transparent test bed for exactly this question. The RTBP has five
+known equilibria---three collinear saddle points and two triangular
+maxima~\cite{lagrange1772,szebehely1967}---so we can check, term by term,
+\emph{which part of the dynamics localises them}. We deliberately present the
+construction as an honest sequence:
+
+\begin{enumerate}
+\item the effective potential and the equilibrium condition
+  (Sec.~\ref{sec:rtbp});
+\item the natural memcomputing ansatz with a memory \emph{multiplier} on the
+  force, and a proof that this memory is dynamically inert
+  (Sec.~\ref{sec:inert});
+\item the curvature-adaptive correction current that turns saddles into
+  attractors (Sec.~\ref{sec:sigma});
+\item the corrected formulation in which \emph{memory is the dissipation},
+  making it genuinely load-bearing (Sec.~\ref{sec:memdiss});
+\item an optional Newton refinement and the small-$\mu$ limitation
+  (Sec.~\ref{sec:refine});
+\item results and an honest robustness assessment (Sec.~\ref{sec:results}).
+\end{enumerate}
+
+Every equation below is the one actually integrated in the accompanying
+code~\cite{github2026}; the numbers in Sec.~\ref{sec:results} are produced by
+that code.
+
+%=============================================================================
+\section{The restricted three-body problem}\label{sec:rtbp}
+%=============================================================================
+
+We work in the co-rotating frame with normalised units: the two primaries are
+separated by unit distance, the angular velocity of the frame is
+$\omega=1$, and the mass ratio is
+\begin{equation}
+  \mu=\frac{M_2}{M_1+M_2}\in(0,\tfrac12],
+\end{equation}
+placing the primary $M_1$ at $(-\mu,0)$ and the secondary $M_2$ at $(1-\mu,0)$.
+The Jacobi effective potential is
+\begin{equation}
+  \Omega(x,y)=\frac{x^2+y^2}{2}+\frac{1-\mu}{r_1}+\frac{\mu}{r_2},
+  \label{eq:omega}
+\end{equation}
+with $r_1=\sqrt{(x+\mu)^2+y^2}$, $r_2=\sqrt{(x-1+\mu)^2+y^2}$. The first term is
+the centrifugal potential of the rotating frame; the last two are the
+gravitational wells of the primaries. Its gradient is
+\begin{align}
+  \partial_x\Omega &= x-\frac{(1-\mu)(x+\mu)}{r_1^3}-\frac{\mu(x-1+\mu)}{r_2^3},
+  \label{eq:gx}\\
+  \partial_y\Omega &= y-\frac{(1-\mu)\,y}{r_1^3}-\frac{\mu\,y}{r_2^3}.
+  \label{eq:gy}
+\end{align}
+\emph{Rationale.} A Lagrange point is a relative equilibrium: in the rotating
+frame the test particle is stationary, so all velocities and accelerations
+vanish and the equilibrium condition reduces to the single vector clause
+\begin{equation}
+  \boxed{\;\nabla\Omega(x,y)=\mathbf 0\;}
+  \label{eq:clause}
+\end{equation}
+which has exactly five solutions: the collinear points $L_1,L_2,L_3$ on $y=0$
+and the triangular points $L_{4,5}=(\tfrac12-\mu,\pm\tfrac{\sqrt3}{2})$.
+
+The local curvature of $\Omega$ in the transverse direction,
+\begin{equation}
+  \Omega_{yy}=1-\frac{1-\mu}{r_1^3}+\frac{3(1-\mu)y^2}{r_1^5}
+              -\frac{\mu}{r_2^3}+\frac{3\mu y^2}{r_2^5},
+  \label{eq:oyy}
+\end{equation}
+is the single most informative local quantity in this paper. On the axis
+($y=0$) it reduces to $1-(1-\mu)/r_1^3-\mu/r_2^3$, which is \emph{negative} at
+all three collinear points (e.g.\ for Earth--Moon, $\mu=0.0121$:
+$\Omega_{yy}=-4.15,-2.19,-0.011$ at $L_1,L_2,L_3$) and \emph{positive}
+($+2.25$) at $L_{4,5}$. Thus $\operatorname{sign}\Omega_{yy}$ distinguishes
+saddles from curvature-maxima using only information available at the current
+point---no knowledge of the solution locations
+(Fig.~\ref{fig:curv}).
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.92\textwidth]{fig_v3_curvature.pdf}
+  \caption{%
+    \textbf{Left}: transverse curvature $\Omega_{yy}(x,y)$ of the effective
+    potential, Eq.~\eqref{eq:oyy}, for the Earth--Moon mass ratio
+    (red--blue, clipped at $\pm3$). Red regions ($\Omega_{yy}<0$) are where the
+    correction current activates ($\sigma=+1$, Eq.~\eqref{eq:sigma}); the dashed
+    line is the contour $\Omega_{yy}=0$. \textbf{Right}: the effective potential
+    $\Omega(x,y)$, Eq.~\eqref{eq:omega}. Stars mark the five Lagrange points;
+    the three collinear ones lie in the red ($\Omega_{yy}<0$) saddle region,
+    $L_{4,5}$ in the blue region.}
+  \label{fig:curv}
+\end{figure*}
+
+%=============================================================================
+\section{The natural ansatz, and why its memory is inert}\label{sec:inert}
+%=============================================================================
+
+\subsection{Memory as a multiplier on the force}
+
+The natural memcomputing transcription introduces a long-term memory $w_L\ge1$
+that grows while the clause~\eqref{eq:clause} is violated and multiplies the
+gradient force, together with a Coriolis term ($\pm2\dot y,\mp2\dot x$) inherited
+from the rotating frame and a viscous damping $-\gamma\dot{\mathbf r}$ added for
+convergence:
+\begin{align}
+  \ddot x &= 2\dot y - w_L\,\partial_x\Omega - \gamma\dot x, \label{eq:nx}\\
+  \ddot y &= -2\dot x - w_L\,\partial_y\Omega - \gamma\dot y, \label{eq:ny}\\
+  \dot w_L &= \beta\,\lVert\nabla\Omega\rVert, \qquad w_L(0)=1.
+  \label{eq:wmem}
+\end{align}
+\emph{Intended rationale.} Equation~\eqref{eq:wmem} is a ratchet: because
+$\lVert\nabla\Omega\rVert\ge0$, the memory $w_L$ is non-decreasing, growing while
+the clause is unsatisfied and halting only when $\nabla\Omega\to\mathbf0$. The
+hope is that the growing multiplier amplifies the restoring force until the
+trajectory is driven into an equilibrium, with $w_L$ playing the role of a
+dynamic Lagrange multiplier.
+
+\subsection{The memory does no work: an energy identity}
+
+This hope is not borne out. Write the kinetic energy
+$T=\tfrac12(\dot x^2+\dot y^2)$. Using \eqref{eq:nx}--\eqref{eq:ny},
+\begin{equation}
+  \dot T=\dot x\,\ddot x+\dot y\,\ddot y
+   = \underbrace{2(\dot x\dot y-\dot y\dot x)}_{=\,0\ \text{(Coriolis)}}
+     -\,w_L\,\dot{\mathbf r}\!\cdot\!\nabla\Omega
+     -\gamma\lVert\dot{\mathbf r}\rVert^2 .
+  \label{eq:Tdot}
+\end{equation}
+Two facts follow immediately. First, the Coriolis force does \emph{no work}:
+its contribution $2(\dot x\dot y-\dot y\dot x)$ vanishes identically. Second,
+the memory enters only through the term $-w_L\,\dot{\mathbf r}\!\cdot\!\nabla\Omega$,
+which is the rate of work of a \emph{conservative} (curl-free) force scaled by
+$w_L$. Such a term can only shuttle energy between kinetic and potential
+reservoirs; it has no definite sign and integrates to a change in the (rescaled)
+potential, not to dissipation. The \emph{only} negative-definite term in
+\eqref{eq:Tdot} is the viscous one, $-\gamma\lVert\dot{\mathbf r}\rVert^2$.
+
+\begin{proposition}[Memory inertness]\label{prop:inert}
+Along \eqref{eq:nx}--\eqref{eq:wmem} with $\gamma=0$, a growing multiplier
+$w_L$ cannot remove kinetic energy. For the reduced transverse oscillator
+$\ddot y=-w_L\,k\,y$ with $k>0$ fixed and $\dot w_L=\beta\lvert k y\rvert\ge0$,
+the energy $E=\tfrac12\dot y^2+\tfrac12 w_L k y^2$ obeys
+\begin{equation}
+  \dot E=\tfrac12\,\dot w_L\,k\,y^2\;\ge\;0 ,
+\end{equation}
+so the memory ratchet \emph{adds} energy; the apparent shrinking of the
+amplitude $y_{\max}\sim\sqrt{2E/(w_Lk)}$ is due solely to stiffening of the
+well, while $T$ does not decay.
+\end{proposition}
+
+\noindent The consequences, all confirmed numerically (Sec.~\ref{sec:results}):
+with damping present the results are \emph{independent of $\beta$}
+($\beta=0$ and the nominal $\beta=10^{-3}$ give identical outcomes, and the
+multiplier never departs from $w_L\approx1$ by more than $0.2\%$ on the
+convergence timescale); with $\gamma=0$ the system fails to converge for every
+$\beta$. \emph{The computation in \eqref{eq:nx}--\eqref{eq:wmem} is done by the
+viscous damping, not by the memory.} This is the central negative result that
+motivates the rest of the paper.
+
+%=============================================================================
+\section{Curvature-adaptive correction current}\label{sec:sigma}
+%=============================================================================
+
+Before fixing the memory we must fix a second problem: even with damping, plain
+gradient descent cannot settle on a saddle. At a collinear point with a small
+transverse displacement $y>0$ one has $\Omega_{yy}<0$, hence
+$\partial_y\Omega<0$, so the descent force $-\partial_y\Omega>0$ pushes the
+particle \emph{away} from the axis. We therefore flip the sign of the
+transverse force wherever the curvature is negative, defining the correction
+current through
+\begin{equation}
+  \sigma=
+  \begin{cases}
+    +1, & \Omega_{yy}<0 \quad\text{(saddle: correction current)},\\
+    -1, & \Omega_{yy}\ge0 \quad\text{(maximum: standard descent)},
+  \end{cases}
+  \label{eq:sigma}
+\end{equation}
+and replacing the transverse force $-\partial_y\Omega$ by
+$+\sigma\,\partial_y\Omega$. \emph{Rationale.} Where $\Omega_{yy}<0$, setting
+$\sigma=+1$ makes the transverse force $+\partial_y\Omega<0$ for $y>0$: a
+\emph{restoring} force pulling the particle back to $y=0$. Where
+$\Omega_{yy}>0$, $\sigma=-1$ recovers ordinary descent, which already restores.
+The sign is computed from \eqref{eq:oyy} at the current position, so no
+information about which equilibria are saddles is supplied externally. The
+$\sigma$-flip converts every critical point of $\Omega$ into a stable rest point
+of the damped flow; numerically, disabling $\sigma$ makes trajectories bound for
+$L_4$ fail. The correction current is thus the curvature-adaptive ingredient
+that makes the equilibria reachable at all---but, by Proposition~\ref{prop:inert},
+it still requires a genuine dissipation channel to remove energy.
+
+%=============================================================================
+\section{Memory as dissipation}\label{sec:memdiss}
+%=============================================================================
+
+\subsection{Equations of motion}
+
+The fix suggested by the energy identity~\eqref{eq:Tdot} is to let the memory
+control the \emph{dissipation}---the only term that can remove kinetic
+energy---instead of the conservative force. We introduce a scalar memory $m\ge0$
+that integrates the clause violation and set the damping coefficient to grow
+with it:
+\begin{subequations}\label{eq:dmm}
+\begin{align}
+  \ddot x &= 2\dot y - \partial_x\Omega - \gamma_{\rm eff}\,\dot x,
+  \label{eq:vx}\\
+  \ddot y &= -2\dot x + \sigma\,\partial_y\Omega - \gamma_{\rm eff}\,\dot y,
+  \label{eq:vy}\\
+  \dot m &= \beta\,\lVert\nabla\Omega\rVert,\qquad m(0)=0,\quad m\le m_{\rm cap},
+  \label{eq:m}\\
+  \gamma_{\rm eff} &= \gamma_0+\kappa\,m .
+  \label{eq:geff}
+\end{align}
+\end{subequations}
+Here $\sigma$ is the correction current~\eqref{eq:sigma}, $\beta$ the memory
+growth rate, $\kappa$ the memory--damping gain, $\gamma_0$ an optional baseline
+damping, and $m_{\rm cap}$ a saturation bound. The gradient force now enters
+with unit gain (the inert multiplier $w_L$ is removed entirely).
+
+\subsection{Rationale, term by term}
+
+\textbf{(i) Why memory now computes.} Substituting \eqref{eq:geff} into the
+energy identity gives
+\begin{equation}
+  \dot T = -\,\dot{\mathbf r}\!\cdot\!\nabla_{\!\sigma}\Omega
+           \;-\;(\gamma_0+\kappa\,m)\,\lVert\dot{\mathbf r}\rVert^2 ,
+  \label{eq:Tdot2}
+\end{equation}
+where $\nabla_{\!\sigma}\Omega=(\partial_x\Omega,\,-\sigma\,\partial_y\Omega)$.
+The memory $m$ now multiplies $\lVert\dot{\mathbf r}\rVert^2$, a
+\emph{negative-definite} term: it directly removes kinetic energy. Memory has
+moved from the one channel that cannot dissipate (the conservative force) to the
+one that can (the velocity coupling).
+
+\textbf{(ii) Lyapunov role and the ratchet.} Because
+$\lVert\nabla\Omega\rVert\ge0$, equation~\eqref{eq:m} makes $m$ monotone
+non-decreasing; it grows precisely while the clause is violated and stops
+($\dot m\to0$) exactly at a solution. Its closed form,
+\begin{equation}
+  m(t)=\beta\!\int_0^t\!\lVert\nabla\Omega(\mathbf r(\tau))\rVert\,d\tau ,
+  \label{eq:mint}
+\end{equation}
+is the accumulated $L^1$ violation along the path: a monotone, bounded
+(by $m_{\rm cap}$) functional that supplies ever-stronger dissipation until the
+motion is quenched at an equilibrium. This is the Lyapunov-type structure that
+the inert multiplier lacked.
+
+\textbf{(iii) The pure case $\gamma_0=0$.} Setting $\gamma_0=0$ makes memory the
+\emph{sole} source of dissipation: at $t=0$ the flow is undamped, and braking
+appears only as $m$ accumulates from the violation history. This is the clean
+test of whether memory computes. Numerically (Sec.~\ref{sec:results}), with
+$\gamma_0=0$ the inert formulation finds $0$--$1$ of $5$ points while the
+present one finds all $5$. A nonzero $\gamma_0$ may be reinstated purely to
+accelerate the initial transient, trading the conceptual purity of
+``memory-only dissipation'' for speed.
+
+\textbf{(iv) Why scalar, not per-axis, memory.} Equation~\eqref{eq:m} uses the
+full gradient norm $\lVert\nabla\Omega\rVert$, damping both axes equally. A
+per-axis variant $\dot m_i=\beta\lvert\partial_i\Omega\rvert$ underdamps the
+transverse direction at collinear points, where $\lvert\partial_y\Omega\rvert$
+is small on the axis; the trajectory then oscillates transversely and misses
+$L_2,L_3$. The scalar choice avoids this and is what the code uses.
+
+\subsection{Initial-condition grid}
+
+No solution coordinates are supplied. We launch $N=100$ trajectories from a
+$10\times10$ grid: ten $x$-values formed from four uniform points in
+$[-1.4,1.4]$ plus six anchors at $x_{L_k}\pm\delta$
+($\delta=\max(0.5\,r_H,0.02)$, $r_H=(\mu/3)^{1/3}$ the Hill radius) bracketing
+the narrow collinear basins; ten $y$-values comprising three points in
+$[-1.2,-0.15]$, a fine layer $\{-0.05,0,0.05\}$, and four points in
+$[0.15,1.2]$. Starts inside singularity disks around either primary are removed.
+Each trajectory is integrated with explicit Euler, $\Delta t=0.01$, until
+$\lVert\nabla\Omega\rVert<10^{-4}$ or $2\times10^5$ steps. Default control
+parameters: $\gamma_0=0$, $\kappa=1$, $\beta=0.5$, $m_{\rm cap}=10$
+(Table~\ref{tab:params}).
+
+\begin{table}[ht]
+\centering
+\caption{Default control parameters of \eqref{eq:vx}--\eqref{eq:geff}.}
+\label{tab:params}
+\small
+\begin{tabular}{llc}
+\toprule
+Parameter & Symbol & Value\\
+\midrule
+Time step & $\Delta t$ & $0.01$\\
+Baseline damping & $\gamma_0$ & $0$ \\
+Memory--damping gain & $\kappa$ & $1.0$\\
+Memory growth rate & $\beta$ & $0.5$\\
+Memory cap & $m_{\rm cap}$ & $10$\\
+Convergence threshold & --- & $\lVert\nabla\Omega\rVert<10^{-4}$\\
+Max.\ steps & --- & $2\times10^5$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%=============================================================================
+\section{Newton refinement and the small-$\mu$ limit}\label{sec:refine}
+%=============================================================================
+
+\textbf{Refinement.} Because the five Lagrange points are the \emph{only} exact
+zeros of $\nabla\Omega$, the converged endpoints may optionally be polished by a
+few Newton iterations on $\nabla\Omega=\mathbf0$ (using the analytic Hessian),
+snapping each to machine precision. Distinct polished zeros are then clustered;
+the number of clusters is the number of equilibria discovered, with no solution
+coordinates used as input. This refinement should fall back to the raw endpoint
+if a Newton step fails to converge---which is exactly what happens in the
+small-$\mu$ regime described next.
+
+\textbf{Corotation-ridge degeneracy.} As $\mu\to0$, $\Omega\to\tfrac12 r^2+1/r$
+($r=\sqrt{x^2+y^2}$), whose gradient $r(1-1/r^3)$ vanishes along the
+\emph{entire} unit circle $r=1$, not at isolated points. For finite but tiny
+$\mu$ the secondary lifts this degeneracy only by $\mathcal O(\mu)$, so
+$\lVert\nabla\Omega\rVert\lesssim\mathcal O(\mu)$ all along $r=1$. Two
+consequences follow. (a)~Any fixed threshold $\lVert\nabla\Omega\rVert<10^{-4}$
+is met everywhere on the ridge once $\mu\lesssim10^{-4}$, so trajectories halt on
+spurious ridge points rather than localising to $L$-points. (b)~The Hessian is
+near-singular along the ridge, so Newton refinement is ill-conditioned and often
+fails there---which is why the polish must fall back rather than reject. This is
+a property of the RTBP potential at extreme mass ratios, not an artefact of the
+solver; it bounds the method's reliable range (Sec.~\ref{sec:results}).
+
+%=============================================================================
+\section{Results}\label{sec:results}
+%=============================================================================
+
+\subsection{Memory is inert in the multiplier formulation}
+
+Table~\ref{tab:inert} reports the multiplier system
+\eqref{eq:nx}--\eqref{eq:wmem} on Earth--Moon. With damping ($\gamma=0.6$) the
+outcome is independent of $\beta$ across four decades, and identical for
+$\beta=0$. With $\gamma=0$ the system fails for every $\beta$, and larger
+$\beta$ is strictly worse. This is the empirical face of
+Proposition~\ref{prop:inert}.
+
+\begin{table}[ht]
+\centering
+\caption{Multiplier formulation \eqref{eq:nx}--\eqref{eq:wmem},
+Earth--Moon, $100$ starts. ``Found'' counts distinct $L$-points.}
+\label{tab:inert}
+\small
+\begin{tabular}{llcc}
+\toprule
+$\gamma$ & $\beta$ & Found & Converged\\
+\midrule
+$0.6$ & $0$       & $5/5$ & $100/100$\\
+$0.6$ & $10^{-3}$ & $5/5$ & $100/100$ \;(identical to $\beta=0$)\\
+$0.6$ & $1.0$     & $5/5$ & $100/100$\\
+$0$   & $0$       & $1/5$ & $1/100$\\
+$0$   & $1.0$     & $0/5$ & $0/100$\\
+$0$   & $10$      & $0/5$ & $0/100$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Memory as dissipation is load-bearing}
+
+Table~\ref{tab:memdiss} reports the present formulation
+\eqref{eq:vx}--\eqref{eq:geff} with $\gamma_0=0$, so that memory is the only
+dissipation. Where the multiplier system finds $0$--$1$ points without external
+damping, memory-as-dissipation finds all five, with $94/100$ trajectories
+converging. The memory is therefore necessary for convergence: it is doing the
+computation.
+
+Figure~\ref{fig:energy} makes the mechanism explicit. For a single initial
+condition we plot the kinetic energy $T(t)$ under both formulations with no
+external damping. Under the multiplier ansatz ($\gamma=0$) $T$ stays
+$\mathcal O(1)$ and even grows---consistent with Proposition~\ref{prop:inert},
+the memory ratchet pumps energy in and the trajectory never settles. Under
+memory-as-dissipation ($\gamma_0=0$) the same initial condition relaxes: the
+memory $m$ and the dissipation $\gamma_{\rm eff}=\kappa m$ it generates ramp up
+from zero as the violation accumulates (right panel), driving $T$ monotonically
+to zero and $\lVert\nabla\Omega\rVert$ below threshold.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.96\textwidth]{fig_v3_energy.pdf}
+  \caption{%
+    Why the memory now computes, for one representative initial condition with
+    \emph{no} external damping. \textbf{Left}: kinetic energy
+    $T=\tfrac12\lVert\dot{\mathbf r}\rVert^2$ (log scale). Under the multiplier
+    ansatz \eqref{eq:nx}--\eqref{eq:wmem} with $\gamma=0$ (red), $T$ remains
+    $\mathcal O(1)$ and grows---the memory cannot dissipate
+    (Proposition~\ref{prop:inert}). Under memory-as-dissipation
+    \eqref{eq:vx}--\eqref{eq:geff} with $\gamma_0=0$ (green), $T\to0$.
+    \textbf{Right}: for the green run, the memory $m$ (solid) and the damping
+    $\gamma_{\rm eff}=\kappa m$ (dashed) ratchet up from zero and saturate, while
+    the clause violation $\lVert\nabla\Omega\rVert$ (grey, right axis) decays to
+    the threshold.}
+  \label{fig:energy}
+\end{figure*}
+
+\begin{table}[ht]
+\centering
+\caption{Memory-as-dissipation \eqref{eq:vx}--\eqref{eq:geff} with
+\textbf{$\gamma_0=0$} (memory is the sole dissipation), Earth--Moon,
+$\kappa=1$, $\beta=0.5$.}
+\label{tab:memdiss}
+\small
+\begin{tabular}{l@{\hspace{4pt}}c@{\hspace{4pt}}c@{\hspace{4pt}}c}
+\toprule
+Formulation & Dissipation & Found & Converged\\
+\midrule
+Multiplier, $\gamma_0{=}0$ & none (inert) & $0$--$1/5$ & $\le2/100$\\
+\textbf{This work}, $\gamma_0{=}0$ & memory $m$ & $\mathbf{5/5}$ & $94/100$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Robustness across mass ratios}
+
+Figure~\ref{fig:disc} shows representative instanton paths---one per
+equilibrium---for Earth--Moon. Table~\ref{tab:solar} applies
+\eqref{eq:vx}--\eqref{eq:geff} unchanged ($\gamma_0=0$, $\kappa=1$,
+$\beta=0.5$) to representative systems. All five points are recovered for
+$\mu\gtrsim3\times10^{-6}$. At $\mu=1.65\times10^{-7}$ (Sun--Mercury) the
+corotation-ridge degeneracy of Sec.~\ref{sec:refine} costs the innermost
+collinear point ($L_2$), giving $4/5$; the ``rejected'' trajectories are those
+that halt on the ridge. We report this limit explicitly rather than claiming
+uniform success.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.99\columnwidth]{fig_v3_discovery.pdf}
+  \caption{%
+    Representative memory-as-dissipation trajectories for Earth--Moon
+    ($\mu=0.0121$), one per Lagrange point, from a $10\times10$ grid of
+    starts. Grey curves: level sets of $\Omega$. Stars: the discovered
+    equilibria. No solution coordinates are supplied to the integrator.}
+  \label{fig:disc}
+\end{figure}
+
+\begin{table}[ht]
+\centering
+\caption{Memory-as-dissipation across mass ratios, $100$ starts each,
+identical parameters. ``Rejected'' = halted on the corotation ridge,
+not near any $L$-point.}
+\label{tab:solar}
+\small
+\begin{tabular}{lcccc}
+\toprule
+System & $\mu$ & Found & Rejected\\
+\midrule
+Pluto--Charon & $1.1\times10^{-1}$ & $5/5$ & $0$\\
+Earth--Moon   & $1.2\times10^{-2}$ & $5/5$ & $0$\\
+Sun--Jupiter  & $9.5\times10^{-4}$ & $5/5$ & $50$\\
+Sun--Earth    & $3.0\times10^{-6}$ & $5/5$ & $85$\\
+Sun--Mercury  & $1.7\times10^{-7}$ & $4/5$ & $81$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%=============================================================================
+\section{Dynamical stability cross-check}\label{sec:stability}
+%=============================================================================
+
+The solver of Sec.~\ref{sec:memdiss} \emph{locates} the equilibria; the
+correction current $\sigma$ makes all five stable fixed points of the
+\emph{damped} extended flow, irrespective of their intrinsic stability. A
+separate and stronger question is whether the discovered points are
+\emph{dynamically} stable for a real test particle---i.e.\ whether a body placed
+there stays. We answer it with an independent method that uses \emph{no} memory
+and \emph{no} correction current: direct forward integration of the
+gravitational $N$-body equations.
+
+\subsection{Method}
+
+Massless test particles are integrated in the heliocentric field of the Sun plus
+the planets, the latter on prescribed circular, coplanar orbits at their mean
+motions (units AU, yr, $M_\odot$, so $GM_\odot=4\pi^2$). The acceleration is
+\begin{equation}
+  \ddot{\mathbf r} = -\frac{GM_\odot\,\mathbf r}{r^3}
+   + \sum_i GM_i\!\left[\frac{\mathbf r_i-\mathbf r}{|\mathbf r_i-\mathbf r|^3}
+   - \frac{\mathbf r_i}{r_i^3}\right],
+  \label{eq:nbody}
+\end{equation}
+where the bracket's second term is the \emph{indirect} term---the reflex
+acceleration of the Sun, which is heliocentric and indispensable: without it the
+Lagrange points are not equilibria of \eqref{eq:nbody} at all. A subtlety in
+seeding the collinear points is that their normalized roots are
+\emph{barycentric} (Sun at $-\mu$); the heliocentric distance is
+$a\,|x_L+\mu|$, not $a\,|x_L|$ (an $a\mu\approx7.4\times10^5$\,km offset for
+Jupiter). Equation~\eqref{eq:nbody} is integrated with velocity Verlet.
+
+The integrator passes three validation tests on the Sun--Jupiter system: a
+particle seeded exactly at $L_4$ stays stationary in the co-rotating frame (drift
+$<10^{-4}$\,AU over $2000$\,yr); the Jacobi constant is conserved to a relative
+$\sim10^{-8}$; and the residual $\lVert\ddot{\mathbf r}+n^2\mathbf r\rVert$ at the
+seeded collinear points falls from $\sim10^{-2}$ (with the wrong, barycentric
+radius) to $\sim10^{-12}$ (with $a|x_L+\mu|$), confirming true equilibrium.
+
+\subsection{Results}
+
+Figure~\ref{fig:stab} summarises a Sun--Jupiter run. Clouds seeded near $L_4$
+execute \emph{tadpole} librations and stay co-orbital; the measured
+small-amplitude period, $147.7$\,yr, matches the analytic value
+$T_{\rm J}/\sqrt{27\mu/4}=147.9$\,yr to $0.1\%$~\cite{murray1999}. Clouds seeded
+at the collinear points disperse: $L_1$ and $L_2$ escape within a single orbital
+period (large positive Lyapunov exponent), while $L_3$---a much weaker
+saddle---erodes slowly, retaining a majority only because its instability
+$e$-folding time is long. The surviving fraction over $1.5\times10^4$\,yr is
+$\sim95\%$ for $L_4$, $0\%$ for $L_1/L_2$, and a slowly declining $\sim70\%$ for
+$L_3$.
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.96\textwidth]{fig_stability.pdf}
+  \caption{%
+    Independent $N$-body stability cross-check (Sun--Jupiter).
+    \textbf{Left}: a cloud seeded near $L_4$ in the frame co-rotating with
+    Jupiter; green paths are surviving \emph{tadpole} librations about $L_4$,
+    grey are escapees. Sun, Jupiter, and the $L_3/L_4/L_5$ points are marked.
+    \textbf{Right}: surviving fraction vs.\ time for clouds seeded at
+    $L_4,L_1,L_2,L_3$. $L_4$ is stable; the collinear $L_1,L_2$ escape within
+    one orbit; $L_3$ is also unstable but with a long $e$-folding time. No memory
+    or correction current is used---this is pure gravitational integration.}
+  \label{fig:stab}
+\end{figure*}
+
+This is exactly the behaviour predicted by the curvature classification used by
+the solver: the triangular points ($\Omega_{yy}>0$) are linearly stable provided
+$\mu<\mu_{\rm Routh}=0.03852$~\cite{murray1999}, satisfied by all systems in
+Table~\ref{tab:solar} except Pluto--Charon ($\mu=0.11$, where $L_4/L_5$ are
+$\nabla\Omega=0$ solutions but not dynamically stable); the collinear points
+($\Omega_{yy}<0$) are saddles and dynamically unstable. The forward integration
+thus confirms \emph{dynamically} the stability type that the solver reads
+\emph{locally} from the sign of $\Omega_{yy}$, and explains why real bodies
+populate $L_4/L_5$ (e.g.\ the Jupiter Trojans) but not the collinear points.
+
+%=============================================================================
+\section{Discussion}\label{sec:discussion}
+%=============================================================================
+
+\textbf{What is and is not memcomputing here.} The lesson of
+Sec.~\ref{sec:inert} is sharp and general: a memory variable that multiplies a
+conservative force is computationally inert, because it cannot change the energy
+budget in a definite direction. To make memory load-bearing it must couple to a
+dissipative channel. Equations~\eqref{eq:vx}--\eqref{eq:geff} do this by letting
+the accumulated-violation memory $m$ set the damping; with $\gamma_0=0$ the
+memory is the sole dissipation and is provably necessary for convergence. We
+regard this as a minimal, transparent instance of a memory variable performing
+computation, and as a cautionary template for transcribing other problems into
+DMM form: \emph{check the energy identity}.
+
+\textbf{Relation to formal DMMs.} In the established DMM framework the memory
+variables possess their own dynamics that endow the system with a Lyapunov
+function and topologically protected instanton trajectories~\cite{diventra2022}.
+Equation~\eqref{eq:m} provides a monotone functional~\eqref{eq:mint} and a
+genuine dissipative role, but it is a single scalar controlling a viscous
+coefficient rather than the full constraint-resolving memory structure of a
+universal DMM. A complete Lyapunov analysis and the extension to vector,
+constraint-coupled memories are natural next steps; the present construction
+shows the minimal requirement (dissipative coupling) that any such memory must
+satisfy.
+
+\textbf{Comparison with classical solvers.} Newton and Brent locate a single
+$L$-point in $\mathcal O(10)$ evaluations given a bracket or a close guess; they
+are far faster per point but require prior knowledge of where each solution is
+and, for the collinear points, of the symmetry $y=0$. The present system finds
+all five from a generic grid without such input, at the cost of $10^4$--$10^5$
+evaluations per trajectory. Its purpose is not to outrun root-finding on a
+problem whose solutions are already bracketed, but to serve as a controlled
+setting in which the computational role of memory can be isolated and tested.
+
+%=============================================================================
+\section{Conclusion}
+%=============================================================================
+
+We presented, with full equations and rationale, a curvature-adaptive
+dynamical solver for the Lagrange points of the restricted three-body problem,
+and used it to answer a precise question about memcomputing. A memory that
+multiplies the gradient force is dynamically inert---a fact we proved with an
+energy identity and confirmed numerically ($\beta$-independence with damping,
+failure without it). Folding the same memory into the dissipation instead,
+$\gamma_{\rm eff}=\gamma_0+\kappa m$ with
+$\dot m=\beta\lVert\nabla\Omega\rVert$, makes it load-bearing: with $\gamma_0=0$
+the memory is the sole dissipation and drives convergence to all five points
+($0/5\to5/5$ on Earth--Moon), while a curvature-adaptive correction current
+$\sigma=\operatorname{sign}(-\Omega_{yy})$ renders the saddle points reachable.
+The method recovers all five equilibria for mass ratios
+$\mu\gtrsim3\times10^{-6}$ and degrades predictably at $\mu\sim10^{-7}$ owing to
+a corotation-ridge degeneracy of the potential, which we characterise rather
+than conceal. Code and an interactive implementation are available
+at~\cite{github2026}.
+
+%=============================================================================
+\section*{Acknowledgements}
+%=============================================================================
+The authors thank the conceptual framework of~\cite{diventra2022} and the
+classical treatment of the RTBP in~\cite{szebehely1967}.
+
+%=============================================================================
+\begin{thebibliography}{9}
+\setlength{\itemsep}{2pt}
+
+\bibitem{diventra2022}
+M.~Di Ventra, \textit{MemComputing: Fundamentals and Applications of Time
+Non-Locality}. Oxford University Press, 2022.
+
+\bibitem{traversa2015}
+F.~L.~Traversa and M.~Di Ventra, ``Universal memcomputing machines,''
+\textit{IEEE Trans.\ Neural Netw.\ Learn.\ Syst.}, vol.~26, no.~11,
+pp.~2702--2715, 2015.
+
+\bibitem{diventra2018}
+M.~Di Ventra and F.~L.~Traversa, ``Perspective: Memcomputing: Leveraging memory
+and physics to compute efficiently,'' \textit{J.~Appl.\ Phys.}, vol.~123,
+no.~18, p.~180901, 2018.
+
+\bibitem{szebehely1967}
+V.~Szebehely, \textit{Theory of Orbits: The Restricted Problem of Three Bodies}.
+Academic Press, 1967.
+
+\bibitem{lagrange1772}
+J.-L.~Lagrange, ``Essai sur le probl\`eme des trois corps,'' \textit{Prix de
+l'Acad.\ R.\ Sci.\ Paris}, vol.~9, 1772.
+
+\bibitem{murray1999}
+C.~D.~Murray and S.~F.~Dermott, \textit{Solar System Dynamics}.
+Cambridge University Press, 1999.
+
+\bibitem{github2026}
+D.~Henrich, ``DigitalMemComputing: curvature-adaptive memory-as-dissipation
+solver for Lagrange-point discovery,'' GitHub repository, 2026.
+\url{https://github.com/drhenrich/DigitalMemComputing}
+
+\end{thebibliography}
+
+\end{document}
