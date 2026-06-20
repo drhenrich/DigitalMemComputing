@@ -1,216 +1,219 @@
-# Digital MemComputing — Lagrange Point Discovery
+# Memory as Dissipation — Lagrange Points of the Restricted Three-Body Problem
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://8ywc2na6utq2km8ga7xnke.streamlit.app)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://cibt6y78bubnrhjmev3nbt.streamlit.app)
 
-👉 **Live app (v3, memory-as-dissipation):** [8ywc2na6utq2km8ga7xnke.streamlit.app](https://8ywc2na6utq2km8ga7xnke.streamlit.app)
+👉 **Live app:** [cibt6y78bubnrhjmev3nbt.streamlit.app](https://cibt6y78bubnrhjmev3nbt.streamlit.app)
 
-The repository's default Streamlit entry point (`streamlit_app.py`) launches the
-v3 app, so any deployment of this repo serves v3 with no configuration. To pin
-the live link above to v3, set its **Main file path** to `streamlit_app.py` in
-the Streamlit Cloud dashboard (see *Deploy* below).
+A continuous dynamical system that locates **all five Lagrange points** of the
+planar restricted three-body problem from generic starting conditions — with no
+solution coordinates supplied. The project is a controlled test bed for a
+precise physics question: **which term in the equations of motion actually does
+the computation?** The answer turns out to be subtle, and fixing it is the whole
+point of this code.
 
-<sub>Older versions: v1 (Earth–Moon) and v2 (force-multiplier memory) remain in the repo for comparison.</sub>
-
-A Python implementation of a **Digital MemComputing Machine (DMM)** that discovers all five Lagrange points of any two-body system in the solar system — **without prior knowledge** of how many solutions exist or where they are.
-
-Based on: *Massimiliano Di Ventra — MemComputing: Fundamentals and Applications of Time Non-Locality* (Oxford University Press, 2022).
-
----
-
-## What is new in v2 (solar_system_dmm_v2.py)
-
-| Feature | v1 | v2 |
-|---|---|---|
-| **Memory rule** | Short-term EMA → long-term ratchet (2-stage, α + β) | Direct gradient: `ẇ_L^i = β·\|∂_iΩ\|` (1 parameter) |
-| **Phase space** | 8D: (x, y, ẋ, ẏ, sm_x, sm_y, w_L^x, w_L^y) | 6D: (x, y, ẋ, ẏ, w_L^x, w_L^y) |
-| **Memory plot** | Single average w̄_L | Per-axis w_L^x and w_L^y separately |
-| **Coverage** | Earth–Moon only | 23 two-body pairs across the solar system |
-| **Grid anchors** | Fixed (−1.0, 0.9, 1.1) | Dynamic — computed from exact L-point positions |
-| **Exclusion zone** | Fixed 0.015 | Adaptive: min(0.012, 0.3·r_Hill) |
+Full derivation: [`dmm_lagrange_v3.tex`](dmm_lagrange_v3.tex) / [`.pdf`](dmm_lagrange_v3.pdf).
+Based on the MemComputing framework of M. Di Ventra, *Fundamentals and
+Applications of Time Non-Locality* (Oxford, 2022).
 
 ---
 
-## Key idea
+## 1. The physics
 
-Classical solvers (Newton, Brent) require one targeted call per solution and prior knowledge of the solution structure.
-The DMM instead maps the constraint problem — find all (x, y) where ∇Ω = 0 — onto a continuous dynamical system in extended phase space.
-Memory variables grow as **dynamic Lagrange multipliers**, amplifying the driving force until every clause is satisfied.
+Work in the co-rotating frame of the two primaries (mass ratio
+$\mu = M_2/(M_1+M_2)$), in units where their separation and the orbital angular
+velocity are both 1. The primary sits at $(-\mu,0)$, the secondary at
+$(1-\mu,0)$. A test particle feels the **Jacobi effective potential**
 
-The critical novelty is the **adaptive correction current**: at each step the machine reads the local y-curvature Ω_yy and adapts its force sign automatically.
-At saddle points (L1/L2/L3, Ω_yy < 0) the correction current flips the repulsive y-force into a restoring one, converting classically unstable equilibria into stable fixed points.
-At stable attractors (L4/L5, Ω_yy > 0) standard memory amplification applies.
-No solution coordinates are ever provided.
+$$\Omega(x,y)=\frac{x^2+y^2}{2}+\frac{1-\mu}{r_1}+\frac{\mu}{r_2},\qquad
+r_1=\sqrt{(x+\mu)^2+y^2},\;\; r_2=\sqrt{(x-1+\mu)^2+y^2}.$$
 
----
+The first term is the centrifugal potential of the rotating frame; the other two
+are the gravity wells of the primaries. A **Lagrange point** is a relative
+equilibrium — the particle is stationary in the rotating frame — so every
+velocity and acceleration vanishes and the condition collapses to a single
+vector clause:
 
-## Discovery map (Earth–Moon)
+$$\boxed{\;\nabla\Omega(x,y)=\mathbf{0}\;}$$
 
-![DMM Trajectory Map](screenshot_discovery.png)
+This has exactly five solutions: three **collinear saddle points** $L_1,L_2,L_3$
+on the axis $y=0$, and two **triangular maxima** $L_4,L_5$ at
+$(\tfrac12-\mu,\pm\tfrac{\sqrt3}{2})$.
 
-Each coloured line is one DMM trajectory evolving from a grid start. Every trajectory terminates at a Lagrange point (★). L4/L5 attract most of the plane; L1/L2/L3 have narrow basins but are reliably found via the correction-current mechanism.
+The single most useful local quantity is the **transverse curvature**
 
----
+$$\Omega_{yy}=1-\frac{1-\mu}{r_1^3}+\frac{3(1-\mu)y^2}{r_1^5}
+              -\frac{\mu}{r_2^3}+\frac{3\mu y^2}{r_2^5}.$$
 
-## Effective potential and local curvature
+Its sign tells a saddle from a maximum using only information available at the
+current point: $\Omega_{yy}<0$ at the collinear points (e.g. Earth–Moon:
+$-4.15,-2.19,-0.011$ at $L_1,L_2,L_3$), $\Omega_{yy}>0$ ($+2.25$) at $L_4,L_5$.
 
-![Potential and Curvature](screenshot_potential.png)
+![Curvature and potential](fig_v3_curvature.png)
 
-**Left:** the local y-curvature Ω_yy across the co-rotating plane. Red regions (Ω_yy < 0) trigger the correction current — standard gradient descent would diverge here. Blue regions (Ω_yy > 0) use standard memory amplification. The dashed yellow contour marks Ω_yy = 0.
-
-**Right:** the effective potential Ω(x, y). All five Lagrange points are critical points (∇Ω = 0) with different topological types — two stable attractors (L4/L5), three saddles (L1/L2/L3).
-
----
-
-## v2 Memory dynamics — per-axis ratchets
-
-![Memory dynamics v2](screenshot_memory_v2.png)
-
-**Left:** x-axis long-term memory w_L^x ratchet — grows as `ẇ_L^x = β|∂Ω/∂x|`.
-**Centre:** y-axis long-term memory w_L^y ratchet — grows as `ẇ_L^y = β|∂Ω/∂y|`.
-Both integrate the gradient magnitude directly and saturate only when the clause is satisfied.
-**Right:** clause violation |∇Ω| falls to zero — the machine halts only when all constraints are met. Colour encodes the discovered L-point.
+*Left: the curvature $\Omega_{yy}$. Red ($\Omega_{yy}<0$) is where the
+correction current activates. Right: the effective potential $\Omega$. Stars
+mark the five Lagrange points.*
 
 ---
 
-## Equations of motion (v2)
+## 2. The key idea — and why the obvious memory does nothing
 
-In the co-rotating frame with Coriolis terms:
+The natural MemComputing transcription drives a particle downhill on $\Omega$
+with a **memory variable that multiplies the force** and grows while the clause
+is violated:
 
-```
-ẍ = 2ẏ − w_L^x · ∂Ω/∂x − γẋ
-ÿ = −2ẋ + σ · w_L^y · ∂Ω/∂y − γẏ
-```
+$$\ddot x = 2\dot y - w_L\,\partial_x\Omega - \gamma\dot x,\qquad
+\ddot y = -2\dot x - w_L\,\partial_y\Omega - \gamma\dot y,\qquad
+\dot w_L = \beta\lVert\nabla\Omega\rVert .$$
 
-where `σ = +1` if `Ω_yy < 0` (correction current) and `σ = −1` otherwise.
+**This memory is dynamically inert.** Take the kinetic energy
+$T=\tfrac12\lVert\dot{\mathbf r}\rVert^2$ and differentiate along the motion:
 
-**v2 Memory update — direct gradient integration:**
-```
-w_L^x ← min(w_L^x + β · |∂Ω/∂x| · Δt,  w_cap)
-w_L^y ← min(w_L^y + β · |∂Ω/∂y| · Δt,  w_cap)
-```
+$$\dot T = \underbrace{2(\dot x\dot y-\dot y\dot x)}_{=\,0\ \text{(Coriolis)}}
+          \;-\;w_L\,\dot{\mathbf r}\cdot\nabla\Omega\;-\;\gamma\lVert\dot{\mathbf r}\rVert^2 .$$
 
-Closed form: `w_L^i(t) = 1 + β ∫₀ᵗ |∂_iΩ(r(τ))| dτ`
-— the memory equals the arc-length integral of the per-axis gradient along the instanton path.
+The Coriolis force does **no work**. The memory enters only through
+$-w_L\,\dot{\mathbf r}\cdot\nabla\Omega$ — the power of a **conservative** force
+scaled by $w_L$ — which merely shuttles energy between kinetic and potential
+form and has no definite sign. The **only** term that can remove kinetic energy
+is the viscous one, $-\gamma\lVert\dot{\mathbf r}\rVert^2$. A growing multiplier
+on a conservative force can only *stiffen the well*, not damp the motion (at
+$\gamma=0$ one finds $\dot E = +\tfrac12\dot w_L\,k\,y^2 \ge 0$ — it adds
+energy).
 
-**Effective potential:**
-```
-Ω = (x² + y²)/2 + (1−μ)/r₁ + μ/r₂
-```
+This is not a subtlety — it is decisive, and it is confirmed numerically:
 
-**Local y-curvature (computed at each step, no prior knowledge):**
-```
-Ω_yy = 1 − (1−μ)/r₁³ + 3(1−μ)y²/r₁⁵ − μ/r₂³ + 3μy²/r₂⁵
-```
+- setting the growth rate **β = 0 changes nothing** (results identical to the
+  nominal β); the multiplier never departs from $w_L\approx1$ by more than 0.2%;
+- with the damping **γ = 0 the system fails for every β**.
 
----
-
-## Speed comparison with classical methods
-
-| Method | Time / point | Func. evals | Error | Prior knowledge |
-|--------|-------------|-------------|-------|-----------------|
-| Brent | < 0.1 ms | 12–18 | machine ε | bracket + know y = 0 |
-| Newton / fsolve | < 0.1 ms | 9–34 | ~10⁻¹⁴ | 1 guess per point |
-| Nelder-Mead | < 1 ms | 150–600 | ~10⁻¹¹ | 1 guess per point; **cannot find saddles** |
-| Homotopy | ~1 s | ~10³ | ~10⁻¹² | algebraic system required |
-| **DMM v2 (this work)** | 70–400 ms | 6,000–40,000 | 10⁻⁵–10⁻⁴ | **none** |
-
-DMM is slower per individual point but discovers **all 5 solutions simultaneously** — including saddles — from a single grid with no knowledge of solution count or location. Classical methods are faster only when the solution structure is already known.
+**The damping was doing the computation, not the memory.**
 
 ---
 
-## Solar system coverage (v2)
+## 3. The fix — memory *is* the dissipation
 
-| System | μ | L4/L5 stable | Known objects |
-|--------|---|---|---|
-| Sun–Earth | 3.0 × 10⁻⁶ | ✓ | L1: SOHO, DSCOVR · L2: JWST, Gaia, Planck |
-| Sun–Jupiter | 9.5 × 10⁻⁴ | ✓ | L4/L5: >7,000 Trojan asteroids each |
-| Earth–Moon | 1.2 × 10⁻² | ✓ | L2: ARTEMIS · L4/L5: proposed stations |
-| Sun–Mars | 3.2 × 10⁻⁷ | ✓ | L4/L5: Mars Trojans |
-| Pluto–Charon | 1.1 × 10⁻¹ | ✗ (Routh) | μ > 0.03852 — L4/L5 linearly unstable |
+The energy identity says exactly where memory has to go: into the **only channel
+that can remove kinetic energy**, the velocity coupling. So let an accumulated
+memory $m$ set the **damping coefficient** instead of the force:
 
-23 two-body pairs total: Sun + all 8 planets + major moons (Moon, Io, Europa, Ganymede, Callisto, Titan, Triton, Charon).
+$$\boxed{\;
+\begin{aligned}
+\ddot x &= 2\dot y \;-\; \partial_x\Omega \;-\; \gamma_{\rm eff}\,\dot x,\\
+\ddot y &= -2\dot x \;+\; \sigma\,\partial_y\Omega \;-\; \gamma_{\rm eff}\,\dot y,\\
+\dot m &= \beta\,\lVert\nabla\Omega\rVert,\qquad m\le m_{\rm cap},\\
+\gamma_{\rm eff} &= \gamma_0 + \kappa\,m .
+\end{aligned}\;}$$
+
+**Term by term:**
+
+| Term | Role | Rationale |
+|------|------|-----------|
+| $\pm2\dot y,\ \mp2\dot x$ | Coriolis | inherited from the rotating frame; does no work |
+| $-\partial_x\Omega,\ \sigma\,\partial_y\Omega$ | force | gradient of $\Omega$, with unit gain (the inert multiplier is gone) |
+| $\sigma=\mathrm{sign}(-\Omega_{yy})$ | **correction current** | flips the transverse force where $\Omega_{yy}<0$, turning the collinear **saddles into attractors** of the damped flow |
+| $\dot m=\beta\lVert\nabla\Omega\rVert$ | **memory** | monotone ratchet; $m(t)=\beta\!\int_0^t\!\lVert\nabla\Omega\rVert\,d\tau$ is the accumulated violation — a Lyapunov-type functional |
+| $\gamma_{\rm eff}=\gamma_0+\kappa m$ | **dissipation** | memory now multiplies $\lVert\dot{\mathbf r}\rVert^2$, the negative-definite term — so it **can** dissipate |
+
+With **$\gamma_0=0$** the memory $m$ is the *sole* source of dissipation: at
+$t=0$ the flow is undamped, and braking appears only as $m$ accumulates from the
+violation history. This is the clean test of whether memory computes — and it
+passes:
+
+![Energy and memory dynamics](fig_v3_energy.png)
+
+*Left: kinetic energy $T$ for one initial condition with no external damping.
+The inert multiplier (red) stays $\mathcal O(1)$ and grows; memory-as-dissipation
+(green) drives $T\to0$. Right: the memory $m$ and the damping
+$\gamma_{\rm eff}=\kappa m$ it generates ratchet up from zero and saturate, while
+$\lVert\nabla\Omega\rVert$ (grey) decays to threshold.*
+
+Where the multiplier formulation finds 0–1 of 5 points without external damping,
+memory-as-dissipation finds **all five** (94/100 trajectories converging on
+Earth–Moon). The memory is now **necessary for convergence** — it is doing the
+work.
+
+> Why **scalar** memory and not per-axis? Using the full gradient norm
+> $\lVert\nabla\Omega\rVert$ damps both axes equally. A per-axis rule
+> $\dot m_i=\beta|\partial_i\Omega|$ underdamps the transverse direction on the
+> collinear axis (where $|\partial_y\Omega|\approx0$), and the trajectory
+> oscillates past $L_2,L_3$.
+
+![Discovery map](fig_v3_discovery.png)
+
+*Representative instanton paths to all five Lagrange points (Earth–Moon), one
+per equilibrium, from a 10×10 grid of starts. No solution coordinates are given
+to the integrator.*
 
 ---
 
-## Analytic L-point positions (Earth–Moon, μ = 0.0121)
+## 4. Results
 
-| Point | x | y | Ω_yy | Type |
-|-------|---|---|------|------|
-| L1 | 0.83716 | 0.00000 | −4.15 | saddle (Moon-inner) |
-| L2 | 1.15549 | 0.00000 | −2.19 | saddle (Moon-outer) |
-| L3 | −1.00504 | 0.00000 | −0.011 | saddle (Earth-far) |
-| L4 | 0.48790 | +0.86603 | +2.25 | equilateral — stable |
-| L5 | 0.48790 | −0.86603 | +2.25 | equilateral — stable |
+Same equations, same parameters ($\gamma_0=0,\ \kappa=1,\ \beta=0.5$),
+100 starts per system:
 
-L4/L5 stability requires μ < 0.03852 (Routh's criterion).
+| System | $\mu$ | Found | Note |
+|--------|-------|-------|------|
+| Pluto–Charon | $1.1\times10^{-1}$ | **5/5** | $\mu>$ Routh limit: $L_4,L_5$ found but linearly unstable |
+| Earth–Moon | $1.2\times10^{-2}$ | **5/5** | clean, 0 spurious |
+| Sun–Jupiter | $9.5\times10^{-4}$ | **5/5** | |
+| Sun–Earth | $3.0\times10^{-6}$ | **5/5** | many trajectories rejected on the ridge |
+| Sun–Mercury | $1.7\times10^{-7}$ | **4/5** | $L_2$ lost — corotation-ridge limit (below) |
 
----
-
-## Files
-
-| File | Description |
-|------|-------------|
-| `solar_system_dmm_v3.py` | **Main app v3** — memory-as-dissipation (memory is load-bearing) |
-| `dmm_lagrange_v3.tex` / `.pdf` | **Current paper** — equations + rationale, honest robustness |
-| `generate_v3_figures.py` | Reproduces the v3 paper figures (PDF) |
-| `diagnose_concerns.py`, `explore_sigma_memory.py`, `test_v3_core.py` | Validation scripts (all paper numbers reproducible) |
-| `solar_system_dmm_v2.py` | App v2 — direct-gradient memory **multiplier** (now known to be inert) |
-| `solar_system_dmm.py` | Solar system app v1 — two-stage memory (α + β) |
-| `dmm_discovery.py` | Earth–Moon only app — original discovery simulation |
-| `3body_app.py` | Earlier app — single L-point targeting with interactive 3D surface |
-| `requirements.txt` | Python dependencies |
+A few Newton iterations on $\nabla\Omega=\mathbf0$ optionally polish each
+converged endpoint to machine precision (the five $L$-points are the *only* exact
+zeros), with fall-back to the raw endpoint where Newton is ill-conditioned.
 
 ---
 
-## Run locally
+## 5. Limitations (stated honestly)
+
+- **Corotation-ridge degeneracy at small μ.** As $\mu\to0$,
+  $\Omega\to\tfrac12 r^2+1/r$, whose gradient vanishes along the **entire** unit
+  circle $r=1$, not at isolated points. For tiny $\mu$ the secondary lifts this
+  by only $\mathcal O(\mu)$, so $\lVert\nabla\Omega\rVert\lesssim\mathcal O(\mu)$
+  all along $r=1$. Any fixed threshold $10^{-4}$ is then met *everywhere* on the
+  ridge once $\mu\lesssim10^{-4}$, and trajectories halt on spurious ridge points
+  instead of localizing. This is why Sun–Mercury returns 4/5. It is a property of
+  the RTBP potential at extreme mass ratios, **not** a solver bug; the Hessian is
+  near-singular there, so Newton refinement is ill-conditioned too.
+- **Memory is a single scalar.** $m$ provides a genuine, monotone, dissipative
+  (Lyapunov-type) role, but it is one scalar controlling a viscous coefficient —
+  not yet the full vector, constraint-coupled memory structure of a *universal*
+  Digital MemComputing Machine. A complete Lyapunov analysis and a vector-memory
+  extension are the natural next steps.
+- **Speed.** With $\gamma_0=0$ the damping ramps up from zero, so convergence is
+  slower than a tuned constant-damping descent (median ~3×10⁴ steps on
+  Earth–Moon). A small $\gamma_0>0$ floor trades the "memory is the *sole*
+  dissipation" purity for speed.
+- **Not a competitor to root-finding.** Newton/Brent locate a single point in
+  $\mathcal O(10)$ evaluations *given a bracket or guess*. This system finds all
+  five from a generic grid with no such input, at $10^4$–$10^5$ evaluations per
+  trajectory. Its purpose is to isolate the computational role of memory, not to
+  outrun a solver whose answers are already bracketed.
+
+---
+
+## 6. Run
 
 ```bash
 pip install -r requirements.txt
-
-# v3 — memory-as-dissipation (current, memory genuinely load-bearing)
-streamlit run solar_system_dmm_v3.py
-
-# v2 — direct-gradient memory multiplier (kept for comparison; memory is inert here)
-streamlit run solar_system_dmm_v2.py
-
-# Earth–Moon only (original)
-streamlit run dmm_discovery.py
+streamlit run streamlit_app.py        # or: streamlit run solar_system_dmm_v3.py
 ```
 
-### What changed in v3, and why
+Pick a two-body system in the sidebar, set the controls ($\gamma_0,\kappa,\beta$,
+grid), and press **Run**. The *Memory dynamics* tab shows $m$, $\gamma_{\rm eff}$,
+the kinetic energy $T\to0$, and $\lVert\nabla\Omega\rVert$ — i.e. memory doing
+the work.
 
-The earlier versions used a memory variable that **multiplied the gradient
-force**. An energy identity (paper, Prop. 1) shows that such a memory is
-**dynamically inert** — a growing multiplier on a conservative force can only
-exchange energy with the potential, never dissipate it. Empirically, setting the
-growth rate β=0 changed nothing, and with the damping γ=0 the system failed for
-every β: the *damping* was doing the work, not the memory.
-
-**v3 fix:** the memory now controls the **dissipation** instead,
-`γ_eff = γ₀ + κ·m` with `ṁ = β·‖∇Ω‖`. With **γ₀=0** the memory is the *only*
-source of dissipation and is provably load-bearing — it drives convergence to
-all 5 points where the multiplier formulation finds 0–1. The curvature-adaptive
-correction current `σ = sign(−Ω_yy)` turns the collinear saddles into
-attractors. Honest limit: for μ ≲ 10⁻⁵ (e.g. Sun–Mercury) the corotation-ridge
-degeneracy of the potential makes the collinear points hard to resolve, and the
-method may return <5/5 — documented, not hidden.
-
-Open [http://localhost:8501](http://localhost:8501). Select a system category and pair in the sidebar, adjust β, memory cap, damping and grid density, then click **▶ Run DMM Discovery**.
-
----
-
-## Deploy / update the live app
-
-The repo ships a default entry point, `streamlit_app.py`, which launches v3.
-
-**Pin the existing link to v3** (reuses the current URL):
-1. Open [share.streamlit.io](https://share.streamlit.io) and sign in.
-2. Open the app for this repo → **⋮ → Settings → Main file path**.
-3. Set it to `streamlit_app.py` (or `solar_system_dmm_v3.py`) → **Save**. It redeploys automatically.
-
-**Or deploy fresh:** *New app* → pick `drhenrich/DigitalMemComputing`, branch `main`, main file `streamlit_app.py` → **Deploy**.
-
-Dependencies are already pinned in `requirements.txt` (numpy, scipy, matplotlib, streamlit, plotly).
+| File | Description |
+|------|-------------|
+| `streamlit_app.py` | Default entry point → launches the v3 app |
+| `solar_system_dmm_v3.py` | The app: memory-as-dissipation across 23 two-body systems |
+| `dmm_lagrange_v3.tex` / `.pdf` | Paper — full equations, rationale, proofs, limitations |
+| `generate_v3_figures.py` | Reproduces the figures above (PDF + PNG) |
+| `diagnose_concerns.py`, `explore_sigma_memory.py`, `test_v3_core.py` | Validation scripts — every number here is reproducible |
+| `requirements.txt` | numpy, scipy, matplotlib, streamlit, plotly |
 
 ---
 
@@ -218,7 +221,5 @@ Dependencies are already pinned in `requirements.txt` (numpy, scipy, matplotlib,
 
 1. M. Di Ventra, *MemComputing: Fundamentals and Applications of Time Non-Locality*, Oxford University Press (2022)
 2. F. L. Traversa & M. Di Ventra, "Universal Memcomputing Machines," *IEEE Trans. Neural Netw. Learn. Syst.* **26**, 2702 (2015)
-3. M. Di Ventra & F. L. Traversa, "Perspective: Memcomputing," *J. Appl. Phys.* **123**, 180901 (2018)
-4. Y. Dauphin et al., "Identifying and attacking the saddle point problem," NeurIPS (2014)
-5. V. Szebehely, *Theory of Orbits*, Academic Press (1967)
-6. D. Henrich, "DigitalMemComputing," GitHub (2026): https://github.com/drhenrich/DigitalMemComputing
+3. V. Szebehely, *Theory of Orbits: The Restricted Problem of Three Bodies*, Academic Press (1967)
+4. D. Henrich, "DigitalMemComputing," GitHub (2026): https://github.com/drhenrich/DigitalMemComputing
