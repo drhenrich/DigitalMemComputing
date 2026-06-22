@@ -10,6 +10,9 @@ Reproduces the EXACT app physics (copied verbatim from solar_system_dmm_v2.py).
 import numpy as np
 from scipy.optimize import brentq
 
+# Single source of truth for CR3BP geometry (was duplicated here verbatim).
+from nbody_trojan import analytical_collinear, grad_curv
+
 EPS = 1e-9
 ROUTH = 0.03852
 
@@ -23,24 +26,10 @@ SYSTEMS = {
     "Pluto-Charon":1.586e21 / (1.303e22 + 1.586e21),
 }
 
-def analytical_collinear(mu):
-    def gx(x):
-        r1 = abs(x + mu) + EPS
-        r2 = abs(x - 1 + mu) + EPS
-        return x - (1-mu)*(x+mu)/r1**3 - mu*(x-1+mu)/r2**3
-    L1 = brentq(gx, -mu + 1e-4, 1-mu - 1e-4)
-    L2 = brentq(gx, 1-mu + 1e-4, 2.5)
-    L3 = brentq(gx, -2.5, -mu - 1e-4)
-    return L1, L2, L3
-
 def grad_and_curvature(pos, mu):
-    x, y = pos
-    r1 = np.sqrt((x + mu)**2 + y**2) + EPS
-    r2 = np.sqrt((x - 1 + mu)**2 + y**2) + EPS
-    gx = x - (1-mu)*(x+mu)/r1**3 - mu*(x-1+mu)/r2**3
-    gy = y - (1-mu)*y/r1**3 - mu*y/r2**3
-    oyy = (1 - (1-mu)/r1**3 + 3*(1-mu)*y**2/r1**5
-             - mu/r2**3 + 3*mu*y**2/r2**5)
+    """Return (grad=[gx,gy], Omega_yy). Delegates to nbody_trojan.grad_curv;
+    kept as a pos-tuple adapter for the local simulate_dmm call sites."""
+    gx, gy, oyy = grad_curv(pos[0], pos[1], mu)
     return np.array([gx, gy]), oyy
 
 def simulate_dmm(mu, start, beta, mem_cap, gamma, dt, max_steps, conv_thr):

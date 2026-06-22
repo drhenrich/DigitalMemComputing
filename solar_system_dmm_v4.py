@@ -26,6 +26,10 @@ import matplotlib.pyplot as plt
 from scipy.optimize import brentq
 import pandas as pd
 
+# Single source of truth for CR3BP geometry (was duplicated here verbatim).
+# analytic_collinear is an alias kept for the existing lpoints_heliocentric call site.
+from nbody_trojan import grad_curv, lpoints, analytical_collinear as analytic_collinear
+
 EPS = 1e-9
 M_SUN = 1.989e30
 ROUTH = 0.03852
@@ -55,20 +59,7 @@ KNOWN = {
 }
 
 
-# ── DMM v3 physics (self-contained, memory-as-dissipation) ──────────────────────
-def grad_curv(x, y, mu):
-    r1 = np.sqrt((x+mu)**2+y**2)+EPS; r2 = np.sqrt((x-1+mu)**2+y**2)+EPS
-    gx = x - (1-mu)*(x+mu)/r1**3 - mu*(x-1+mu)/r2**3
-    gy = y - (1-mu)*y/r1**3 - mu*y/r2**3
-    oyy = 1 - (1-mu)/r1**3 + 3*(1-mu)*y**2/r1**5 - mu/r2**3 + 3*mu*y**2/r2**5
-    return gx, gy, oyy
-
-def analytic_collinear(mu):
-    def g0(x):
-        r1 = abs(x+mu)+EPS; r2 = abs(x-1+mu)+EPS
-        return x - (1-mu)*(x+mu)/r1**3 - mu*(x-1+mu)/r2**3
-    return (brentq(g0,-mu+1e-4,1-mu-1e-4), brentq(g0,1-mu+1e-4,2.5), brentq(g0,-2.5,-mu-1e-4))
-
+# ── DMM v3 physics (memory-as-dissipation); CR3BP geometry imported from nbody_trojan ──
 def simulate_v3(mu, start, beta=0.5, gamma0=0.0, kappa=1.0, m_cap=10.0,
                 dt=0.01, max_steps=120000, conv_thr=1e-4):
     pos = np.array(start, float); vel = np.zeros(2); m = 0.0
@@ -86,9 +77,8 @@ def simulate_v3(mu, start, beta=0.5, gamma0=0.0, kappa=1.0, m_cap=10.0,
 @st.cache_data(show_spinner=False)
 def discover_pair(mu):
     """Run the v3 DMM on a 10x10 grid for one Sun-planet pair; return found counts."""
-    L1x, L2x, L3x = analytic_collinear(mu)
-    L = {"L1":np.array([L1x,0.]),"L2":np.array([L2x,0.]),"L3":np.array([L3x,0.]),
-         "L4":np.array([0.5-mu,np.sqrt(3)/2]),"L5":np.array([0.5-mu,-np.sqrt(3)/2])}
+    L = lpoints(mu)
+    L1x, L2x, L3x = L["L1"][0], L["L2"][0], L["L3"][0]
     hill = (mu/3)**(1/3); off = max(0.5*hill, 0.02)
     ep = min(0.03,0.3*hill); es = min(0.012,0.3*hill)
     anchors = np.array([L1x-off,L1x+off,L2x-off,L2x+off,L3x-0.04,L3x+0.04])

@@ -10,6 +10,12 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from scipy.optimize import brentq
 
+# Gradient/curvature math consolidated into nbody_trojan.grad_curv (single source
+# of truth). NOTE: this file's effective_potential is NEGATED relative to the
+# canonical Omega (used for an inverted-sense contour plot), and find_analytic
+# uses a slightly different L1 bracket — so both stay local by design.
+from nbody_trojan import grad_curv as _grad_curv
+
 # ── constants ──────────────────────────────────────────────────────────────────
 EPS = 1e-9
 L_COLORS = {"L1": "#e74c3c", "L2": "#e67e22", "L3": "#9b59b6",
@@ -25,20 +31,16 @@ def _r(pos, mu):
 
 
 def effective_potential(x, y, mu):
+    # NOTE: negated Omega (inverted sense) — intentionally local, not imported.
     r1 = np.sqrt((x + mu) ** 2 + y ** 2) + EPS
     r2 = np.sqrt((x - 1 + mu) ** 2 + y ** 2) + EPS
     return -(x ** 2 + y ** 2) / 2 - (1 - mu) / r1 - mu / r2
 
 
 def grad_and_curvature(pos, mu):
-    """Return ∇Ω = (gx, gy) and local y-curvature Ω_yy."""
-    x, y = pos
-    r1, r2 = _r(pos, mu)
-    gx = x - (1 - mu) * (x + mu) / r1 ** 3 - mu * (x - 1 + mu) / r2 ** 3
-    gy = y - (1 - mu) * y / r1 ** 3 - mu * y / r2 ** 3
-    omega_yy = (1
-                - (1 - mu) / r1 ** 3 + 3 * (1 - mu) * y ** 2 / r1 ** 5
-                - mu / r2 ** 3 + 3 * mu * y ** 2 / r2 ** 5)
+    """Return ∇Ω = (gx, gy) and local y-curvature Ω_yy.
+    Delegates to nbody_trojan.grad_curv (pos-tuple adapter)."""
+    gx, gy, omega_yy = _grad_curv(pos[0], pos[1], mu)
     return np.array([gx, gy]), omega_yy
 
 

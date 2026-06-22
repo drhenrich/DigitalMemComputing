@@ -7,15 +7,10 @@ Validate across mu range incl. Sun-Mercury.
 import numpy as np
 from scipy.optimize import brentq, fsolve
 
-EPS = 1e-9
+# Single source of truth for CR3BP geometry (was duplicated here verbatim).
+from nbody_trojan import grad_curv, lpoints
 
-def grad_curv(x, y, mu):
-    r1 = np.sqrt((x+mu)**2 + y**2) + EPS
-    r2 = np.sqrt((x-1+mu)**2 + y**2) + EPS
-    gx = x - (1-mu)*(x+mu)/r1**3 - mu*(x-1+mu)/r2**3
-    gy = y - (1-mu)*y/r1**3 - mu*y/r2**3
-    oyy = 1 - (1-mu)/r1**3 + 3*(1-mu)*y**2/r1**5 - mu/r2**3 + 3*mu*y**2/r2**5
-    return gx, gy, oyy
+EPS = 1e-9
 
 def grad_vec(p, mu):
     gx, gy, _ = grad_curv(p[0], p[1], mu)
@@ -34,16 +29,6 @@ def hessian(p, mu):
     def hxy():
         return (3*(1-mu)*(x+mu)*y/r1**5 + 3*mu*(x-1+mu)*y/r2**5)
     return np.array([[hxx(), hxy()], [hxy(), hyy()]])
-
-def lpoints(mu):
-    def g0(x):
-        r1 = abs(x+mu)+EPS; r2 = abs(x-1+mu)+EPS
-        return x - (1-mu)*(x+mu)/r1**3 - mu*(x-1+mu)/r2**3
-    return {"L1":np.array([brentq(g0,-mu+1e-4,1-mu-1e-4),0.]),
-            "L2":np.array([brentq(g0,1-mu+1e-4,2.5),0.]),
-            "L3":np.array([brentq(g0,-2.5,-mu-1e-4),0.]),
-            "L4":np.array([0.5-mu, np.sqrt(3)/2]),
-            "L5":np.array([0.5-mu,-np.sqrt(3)/2])}
 
 def simulate_v3(mu, start, beta=0.5, gamma0=0.0, kappa=1.0, m_cap=10.0,
                 dt=0.01, max_steps=120000, loose_thr=1e-4):

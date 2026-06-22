@@ -13,25 +13,10 @@ Shared, verified physics (one gradient routine for all variants -> no drift).
 import numpy as np
 from scipy.optimize import brentq
 
+# Single source of truth for CR3BP geometry (was duplicated here verbatim).
+from nbody_trojan import grad_curv, lpoints
+
 EPS = 1e-9
-
-def grad_curv(x, y, mu):
-    r1 = np.sqrt((x+mu)**2 + y**2) + EPS
-    r2 = np.sqrt((x-1+mu)**2 + y**2) + EPS
-    gx = x - (1-mu)*(x+mu)/r1**3 - mu*(x-1+mu)/r2**3
-    gy = y - (1-mu)*y/r1**3 - mu*y/r2**3
-    oyy = 1 - (1-mu)/r1**3 + 3*(1-mu)*y**2/r1**5 - mu/r2**3 + 3*mu*y**2/r2**5
-    return gx, gy, oyy
-
-def lpoints(mu):
-    def gx0(x):
-        r1 = abs(x+mu)+EPS; r2 = abs(x-1+mu)+EPS
-        return x - (1-mu)*(x+mu)/r1**3 - mu*(x-1+mu)/r2**3
-    L1 = brentq(gx0, -mu+1e-4, 1-mu-1e-4)
-    L2 = brentq(gx0, 1-mu+1e-4, 2.5)
-    L3 = brentq(gx0, -2.5, -mu-1e-4)
-    return {"L1":np.array([L1,0.]),"L2":np.array([L2,0.]),"L3":np.array([L3,0.]),
-            "L4":np.array([0.5-mu, np.sqrt(3)/2]),"L5":np.array([0.5-mu,-np.sqrt(3)/2])}
 
 
 def simulate(variant, mu, start, beta, gamma0, dt=0.01, max_steps=120000,

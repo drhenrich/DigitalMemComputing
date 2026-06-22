@@ -16,6 +16,10 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from scipy.optimize import brentq
 
+# Single source of truth for CR3BP geometry (was duplicated here verbatim).
+# Omega here is the CR3BP effective potential.
+from nbody_trojan import grad_curv, effective_potential as Omega, lpoints
+
 EPS = 1e-9
 MU  = 0.01215
 L_COLORS = {"L1":"#d62728","L2":"#ff7f0e","L3":"#9467bd","L4":"#2ca02c","L5":"#1f77b4"}
@@ -27,26 +31,6 @@ plt.rcParams.update({
     "xtick.direction":"in", "ytick.direction":"in",
     "legend.framealpha":0.95, "legend.edgecolor":"0.7", "figure.facecolor":"white",
 })
-
-def grad_curv(x,y,mu):
-    r1=np.sqrt((x+mu)**2+y**2)+EPS; r2=np.sqrt((x-1+mu)**2+y**2)+EPS
-    gx=x-(1-mu)*(x+mu)/r1**3-mu*(x-1+mu)/r2**3
-    gy=y-(1-mu)*y/r1**3-mu*y/r2**3
-    oyy=1-(1-mu)/r1**3+3*(1-mu)*y**2/r1**5-mu/r2**3+3*mu*y**2/r2**5
-    return gx,gy,oyy
-
-def Omega(x,y,mu):
-    r1=np.sqrt((x+mu)**2+y**2)+EPS; r2=np.sqrt((x-1+mu)**2+y**2)+EPS
-    return (x**2+y**2)/2+(1-mu)/r1+mu/r2
-
-def lpoints(mu):
-    def g0(x):
-        r1=abs(x+mu)+EPS;r2=abs(x-1+mu)+EPS
-        return x-(1-mu)*(x+mu)/r1**3-mu*(x-1+mu)/r2**3
-    return {"L1":np.array([brentq(g0,-mu+1e-4,1-mu-1e-4),0.]),
-            "L2":np.array([brentq(g0,1-mu+1e-4,2.5),0.]),
-            "L3":np.array([brentq(g0,-2.5,-mu-1e-4),0.]),
-            "L4":np.array([0.5-mu,np.sqrt(3)/2]),"L5":np.array([0.5-mu,-np.sqrt(3)/2])}
 
 def sim_memdiss(mu,start,beta=0.5,gamma0=0.0,kappa=1.0,m_cap=10.0,dt=0.01,
                 max_steps=200000,thr=1e-4,record=False):

@@ -43,6 +43,71 @@ def planet_pos(name, t):
     return np.array([a*np.cos(th), a*np.sin(th)])
 
 
+# ── CR3BP geometry (normalized rotating frame) ─────────────────────────────────
+# Single source of truth for the circular restricted 3-body effective potential
+# Omega(x,y) and its equilibria. All DMM/figure/diagnostic scripts import from
+# here rather than re-deriving these expressions (they had drifted across five
+# independent copies). Softening EPS matches the historical value used in every
+# script except ring_dmm_benchmark.py (which deliberately uses 1e-12).
+#
+# Convention: primaries at (-mu, 0) [mass 1-mu] and (1-mu, 0) [mass mu]; unit
+# separation, unit angular velocity. Omega = (x^2+y^2)/2 + (1-mu)/r1 + mu/r2.
+EPS_CR3BP = 1e-9
+
+
+def effective_potential(x, y, mu):
+    """CR3BP effective potential Omega(x,y) in the co-rotating frame.
+
+    Vectorized over array x, y. Uses softening EPS_CR3BP to avoid the
+    singularity at the primaries."""
+    r1 = np.sqrt((x + mu)**2 + y**2) + EPS_CR3BP
+    r2 = np.sqrt((x - 1 + mu)**2 + y**2) + EPS_CR3BP
+    return (x**2 + y**2)/2 + (1 - mu)/r1 + mu/r2
+
+
+def grad_curv(x, y, mu):
+    """Gradient of Omega and the yy-curvature Omega_yy at (x, y).
+
+    Returns (gx, gy, oyy). gx, gy are the components of -nabla Omega (the
+    direction of the conservative force in the rotating frame); oyy = Omega_yy
+    is the curvature used by the DMM to decide the sign of the y-axis memory
+    current (sigma = sign(-oyy)). Vectorized over x, y."""
+    r1 = np.sqrt((x + mu)**2 + y**2) + EPS_CR3BP
+    r2 = np.sqrt((x - 1 + mu)**2 + y**2) + EPS_CR3BP
+    gx = x - (1 - mu)*(x + mu)/r1**3 - mu*(x - 1 + mu)/r2**3
+    gy = y - (1 - mu)*y/r1**3 - mu*y/r2**3
+    oyy = (1 - (1 - mu)/r1**3 + 3*(1 - mu)*y**2/r1**5
+           - mu/r2**3 + 3*mu*y**2/r2**5)
+    return gx, gy, oyy
+
+
+def analytical_collinear(mu):
+    """x-positions of the three collinear Lagrange points L1, L2, L3.
+
+    L1 lies between the primaries, L2 beyond the secondary (mass mu), L3 beyond
+    the primary (mass 1-mu). Found by bracketed root-finding on gx(x,0,mu)=0."""
+    from scipy.optimize import brentq
+    def gx0(x):
+        r1 = abs(x + mu) + EPS_CR3BP
+        r2 = abs(x - 1 + mu) + EPS_CR3BP
+        return x - (1 - mu)*(x + mu)/r1**3 - mu*(x - 1 + mu)/r2**3
+    L1 = brentq(gx0, -mu + 1e-4, 1 - mu - 1e-4)
+    L2 = brentq(gx0, 1 - mu + 1e-4, 2.5)
+    L3 = brentq(gx0, -2.5, -mu - 1e-4)
+    return L1, L2, L3
+
+
+def lpoints(mu):
+    """The five Lagrange points of the CR3BP as a dict {name: np.array([x,y])}.
+
+    L1,L2,L3 are collinear (on the x-axis); L4,L5 are the equilateral points."""
+    L1x, L2x, L3x = analytical_collinear(mu)
+    return {"L1": np.array([L1x, 0.]), "L2": np.array([L2x, 0.]),
+            "L3": np.array([L3x, 0.]),
+            "L4": np.array([0.5 - mu,  np.sqrt(3)/2]),
+            "L5": np.array([0.5 - mu, -np.sqrt(3)/2])}
+
+
 def accel(r, t, perturbers):
     """Heliocentric acceleration on a test particle at r (AU) at time t (yr).
     Includes the indirect term (Sun's reflex acceleration from each planet),
