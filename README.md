@@ -31,7 +31,7 @@ velocity are both 1. The primary sits at $(-\mu,0)$, the secondary at
 $(1-\mu,0)$. A test particle feels the **Jacobi effective potential**
 
 $$\Omega(x,y)=\frac{x^2+y^2}{2}+\frac{1-\mu}{r_1}+\frac{\mu}{r_2},\qquad
-r_1=\sqrt{(x+\mu)^2+y^2},\;\; r_2=\sqrt{(x-1+\mu)^2+y^2}.$$
+r_1=\sqrt{(x+\mu)^2+y^2},\quad r_2=\sqrt{(x-1+\mu)^2+y^2}.$$
 
 The first term is the centrifugal potential of the rotating frame; the other two
 are the gravity wells of the primaries. A **Lagrange point** is a relative
@@ -39,7 +39,7 @@ equilibrium — the particle is stationary in the rotating frame — so every
 velocity and acceleration vanishes and the condition collapses to a single
 vector clause:
 
-$$\boxed{\;\nabla\Omega(x,y)=\mathbf{0}\;}$$
+$$\boxed{\nabla\Omega(x,y)=\mathbf{0}}$$
 
 This has exactly five solutions: three **collinear saddle points** $L_1,L_2,L_3$
 on the axis $y=0$, and two **triangular maxima** $L_4,L_5$ at
@@ -68,13 +68,13 @@ The machine is an autonomous dynamical system in the co-rotating frame. To the
 ordinary gradient force and Coriolis acceleration we add a viscous term whose
 coefficient is **not constant** but is set by a memory degree of freedom $m$:
 
-$$\boxed{\;
+$$\boxed{
 \begin{aligned}
-\ddot x &= 2\dot y \;-\; \partial_x\Omega \;-\; \gamma_{\rm eff}\,\dot x,\\
-\ddot y &= -2\dot x \;+\; \sigma\,\partial_y\Omega \;-\; \gamma_{\rm eff}\,\dot y,\\
-\dot m &= \beta\,\lVert\nabla\Omega\rVert,\qquad m\le m_{\rm cap},\\
-\gamma_{\rm eff} &= \gamma_0 + \kappa\,m .
-\end{aligned}\;}$$
+\ddot x &= 2\dot y - \partial_x\Omega - \gamma_{\rm eff}\dot x,\\
+\ddot y &= -2\dot x + \sigma\partial_y\Omega - \gamma_{\rm eff}\dot y,\\
+\dot m &= \beta\lVert\nabla\Omega\rVert,\qquad m\le m_{\rm cap},\\
+\gamma_{\rm eff} &= \gamma_0 + \kappa m .
+\end{aligned}}$$
 
 The augmented phase space is $(x,y,\dot x,\dot y,m)$ — the relaxed variables and
 their velocities, plus the single memory variable.
@@ -82,13 +82,13 @@ their velocities, plus the single memory variable.
 | Term | Role |
 |------|------|
 | $\pm2\dot y,\ \mp2\dot x$ | Coriolis (rotating frame; does no work) |
-| $-\partial_x\Omega,\ \sigma\,\partial_y\Omega$ | gradient force, unit gain |
+| $-\partial_x\Omega,\ \sigma\partial_y\Omega$ | gradient force, unit gain |
 | $\sigma=\mathrm{sign}(-\Omega_{yy})$ | **correction current** — flips the transverse force where $\Omega_{yy}<0$, turning the collinear **saddles into attractors** |
-| $\dot m=\beta\lVert\nabla\Omega\rVert$ | **memory** — monotone ratchet $m(t)=\beta\!\int_0^t\!\lVert\nabla\Omega\rVert\,d\tau$, a Lyapunov-type functional |
+| $\dot m=\beta\lVert\nabla\Omega\rVert$ | **memory** — monotone ratchet $m(t)=\beta\int_0^t\lVert\nabla\Omega\rVert\mathrm dt'$ (accumulated violation), a Lyapunov-type functional |
 | $\gamma_{\rm eff}=\gamma_0+\kappa m$ | **dissipation** — memory sets the damping coefficient |
 
 **Why the memory enters the dissipation.** Along the motion the kinetic-energy
-budget is $\dot T = -\dot{\mathbf r}\!\cdot\!\nabla_{\!\sigma}\Omega
+budget is $\dot T = -\dot{\mathbf r}\cdot\nabla_{\sigma}\Omega
 -(\gamma_0+\kappa m)\lVert\dot{\mathbf r}\rVert^2$ (the Coriolis force does no
 work). The only sign-definite, energy-removing term is the viscous one, so a
 memory that is to be dynamically active must couple there — to the velocity. With
@@ -122,7 +122,7 @@ rotating axis within a Hill radius $r_H=(\mu/3)^{1/3}$ of the secondary; $L_3$
 sits opposite the primary near $x=-1$; $L_4,L_5$ form equilateral triangles with
 the primaries. So the grid seeds (`build_grid` in `solar_system_dmm_v3.py`):
 
-- on-axis points $(1-\mu)\pm c\,r_H$, $c\in\{0.5,0.7,1,1.4,2,3,5,8\}$ → $L_1,L_2$
+- on-axis points $(1-\mu)\pm c\cdot r_H$, $c\in\{0.5,0.7,1,1.4,2,3,5,8\}$ → $L_1,L_2$
 - points near $x=-1$ → $L_3$
 - a block around $(\tfrac12,\pm\tfrac{\sqrt3}{2})$ → $L_4,L_5$
 - a coarse off-axis fill for the broad large-$\mu$ basins
@@ -296,7 +296,7 @@ python test_nbody_trojan.py        # or: python -m pytest test_nbody_trojan.py -
 | `test_jacobi_constant_jupiter_l4` | Jacobi constant conserved to rel $<10^{-6}$ over 200 yr (manuscript: ~$10^{-8}$) |
 | `test_l4_bounded_libration_jupiter` | a body at Jupiter L4 stays bounded over 1000 yr (no escape) |
 | `test_trojan_libration_period` | $T_{\rm lib}=P/\sqrt{27\mu/4}\approx 148$ yr for Jupiter |
-| `test_seed_lpoint_corotation_velocity` | seed velocity is exact co-rotation $v=n\,\hat z\times r$ |
+| `test_seed_lpoint_corotation_velocity` | seed velocity is exact co-rotation $v=n\hat z\times r$ |
 
 All nine pass. They double as living documentation of the physics claims in
 §4–§5.
