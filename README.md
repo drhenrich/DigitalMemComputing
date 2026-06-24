@@ -77,7 +77,7 @@ $$\boxed{
 With $s=-1$ this is ordinary descent and settles onto the **minima** $L_4,L_5$. At a
 collinear **saddle** the transverse direction has $\Omega_{yy}<0$, so descent is
 repelled; setting $s=+1$ inverts that one term into a restoring force and the saddle
-becomes an attractor. The required rule is $s=-\operatorname{sign}(\Omega_{yy})$.
+becomes an attractor. The required rule is $s=-\mathrm{sign}(\Omega_{yy})$.
 
 **No constant inversion works** — and that is the point. Off-axis seeds around the
 Earth–Moon $L_1$ (saddle) and $L_4$ (minimum), raw dynamics:
