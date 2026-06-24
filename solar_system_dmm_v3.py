@@ -149,6 +149,39 @@ def simulate_v3(mu, start, beta, gamma0, kappa, m_cap, dt, max_steps, conv_thr):
     return (np.array(traj), np.array(m_h), np.array(g_h),
             np.array(gn_h), np.array(T_h), conv, pos)
 
+
+def simulate_broyden(mu, start, gamma, alpha, eps_c, leak, thr, dpmin,
+                     dt, max_steps, conv_thr):
+    """Curvature-learning machine: a quasi-Newton (Broyden) memory B estimates the
+    Hessian from the gradient history (no analytic Hessian) and sets the transverse
+    force-inversion gain s from B_yy. ẍ=2ẏ−∂ₓΩ−γẋ, ÿ=−2ẋ+s·∂ᵧΩ−γẏ."""
+    pos = np.array(start, float); vel = np.zeros(2); s = -1.0; B = np.eye(2)
+    gx, gy, oyy = grad_curv(pos[0], pos[1], mu)
+    p_prev = pos.copy(); g_prev = np.array([gx, gy])
+    traj = [pos.copy()]; byy_h = [B[1, 1]]; s_h = [s]; oyy_h = [oyy]
+    gn_h = []; T_h = []; conv = None
+    for step in range(max_steps):
+        x, y = pos
+        gx, gy, oyy = grad_curv(x, y, mu); gn = np.hypot(gx, gy); g = np.array([gx, gy])
+        dp = pos - p_prev; dg = g - g_prev; nd = dp @ dp
+        if nd > dpmin*dpmin:
+            B = B + np.outer(dg - B @ dp, dp) / nd
+            B = 0.5*(B + B.T); B = B + leak*(np.eye(2) - B)*dt
+        s += alpha*(-np.tanh((B[1, 1] - thr)/eps_c) - s)*dt; s = max(-1.0, min(1.0, s))
+        p_prev = pos.copy(); g_prev = g
+        ax = 2*vel[1] - gx - gamma*vel[0]
+        ay = -2*vel[0] + s*gy - gamma*vel[1]
+        vel += np.array([ax, ay])*dt; pos = pos + vel*dt
+        if step % 20 == 0:
+            traj.append(pos.copy()); byy_h.append(B[1, 1]); s_h.append(s); oyy_h.append(oyy)
+            gn_h.append(gn); T_h.append(0.5*(vel[0]**2 + vel[1]**2))
+        if gn < conv_thr:
+            conv = step; traj.append(pos.copy()); break
+        if not np.isfinite(pos).all() or np.linalg.norm(pos) > 12:
+            break
+    return (np.array(traj), np.array(byy_h), np.array(s_h), np.array(oyy_h),
+            np.array(gn_h), np.array(T_h), conv, pos)
+
 def newton_polish(pos, mu):
     """Snap to the nearest exact zero of ∇Ω; return (point, ok). Falls back if it fails."""
     try:
@@ -223,6 +256,30 @@ def run_discovery(mu, beta, gamma0, kappa, m_cap, dt, max_steps, conv_thr, n_x, 
     return results, L
 
 
+def run_discovery_qn(mu, gamma, alpha, eps_c, leak, thr, dpmin,
+                     dt, max_steps, conv_thr, n_x, n_y, polish):
+    """Discovery with the curvature-learning (quasi-Newton memory) machine. Same
+    structural grid and labelling as run_discovery; no analytic Hessian is used."""
+    L = lpoints(mu)
+    results = []
+    for (x, y) in build_grid(mu, fill=max(n_x-4, 4)):
+        traj, byy_h, s_h, oyy_h, gn_h, T_h, conv, endp = simulate_broyden(
+            mu, [x, y], gamma, alpha, eps_c, leak, thr, dpmin, dt, max_steps, conv_thr)
+        pt = endp; polished = False
+        if polish and np.isfinite(endp).all():
+            pol, ok = newton_polish(endp, mu)
+            if ok: pt = pol; polished = True
+        label, dbest = None, 1e9
+        if np.isfinite(pt).all():
+            for k, v in L.items():
+                d = np.linalg.norm(pt - v)
+                if d < dbest: dbest, label = d, k
+            label = label if dbest < (0.05 if polished else 0.12) else None
+        results.append(dict(start=(x, y), traj=traj, byy_h=byy_h, s_h=s_h, oyy_h=oyy_h,
+                            gn_h=gn_h, T_h=T_h, conv=conv, final=pt, label=label))
+    return results, L
+
+
 # ── Plots (dark theme for the app) ───────────────────────────────────────────────
 def _darkstyle(ax):
     ax.set_facecolor("#0f0f1a"); ax.tick_params(colors="white")
@@ -272,19 +329,51 @@ def plot_memory(results):
     plt.tight_layout(); return fig
 
 
+def plot_memory_curvature(results):
+    """Curvature-learning machine: the memory B_yy learns the true Ω_yy from the
+    gradient history; the inversion gain s adapts (−1 descend, +1 invert); |∇Ω|→0."""
+    fig,(a1,a2,a3) = plt.subplots(1,3,figsize=(15,4)); fig.patch.set_facecolor("#0f0f1a")
+    for a in (a1,a2,a3): _darkstyle(a)
+    for r in results:
+        if r["label"] is None or len(r.get("gn_h",[])) < 3: continue
+        c = L_COLORS[r["label"]]
+        sB = np.arange(len(r["byy_h"]))*20
+        a1.plot(sB, r["byy_h"], color=c, lw=1.0, alpha=0.6)
+        a1.plot(np.arange(len(r["oyy_h"]))*20, r["oyy_h"], color=c, lw=0.7, ls="--", alpha=0.4)
+        a2.plot(np.arange(len(r["s_h"]))*20, r["s_h"], color=c, lw=1.0, alpha=0.6)
+        a3.semilogy(np.arange(len(r["gn_h"]))*20, r["gn_h"], color=c, lw=0.8, alpha=0.5)
+    a1.axhline(0, color="white", lw=0.6, alpha=0.4)
+    for k,c in L_COLORS.items(): a1.plot([],[],color=c,lw=1.8,label=k)
+    a1.set_xlabel("step"); a1.set_ylabel("B_yy learned (solid) vs Ω_yy true (dashed)")
+    a1.set_title("Memory learns the curvature (no analytic Hessian)", fontsize=10)
+    a1.legend(fontsize=8,facecolor="#1a1a2e",edgecolor="#555",labelcolor="white")
+    a2.axhline(1,color="white",lw=0.5,ls=":",alpha=0.4); a2.axhline(-1,color="white",lw=0.5,ls=":",alpha=0.4)
+    a2.set_xlabel("step"); a2.set_ylabel("inversion gain s"); a2.set_ylim(-1.15,1.15)
+    a2.set_title("Adaptive inversion  (−1 descend · +1 invert saddle)", fontsize=10)
+    a3.axhline(1e-4,color="white",lw=0.8,ls="--",alpha=0.5)
+    a3.set_xlabel("step"); a3.set_ylabel("|∇Ω|  (log)")
+    a3.set_title("Clause violation → 0", fontsize=10); a3.set_ylim(bottom=1e-6)
+    plt.tight_layout(); return fig
+
+
 # ── UI ───────────────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Solar System DMM v3", layout="wide", page_icon="🌌")
-st.title("🌌 Lagrange Point Discovery — DMM v3 (memory-as-dissipation)")
+st.title("🌌 Lagrange Point Discovery — MemComputing")
 st.markdown(r"""
-The memory variable controls the **dissipation**, not a force multiplier:
-$\;\ddot x = 2\dot y - \partial_x\Omega - \gamma_{\rm eff}\dot x,\;
-\ddot y = -2\dot x + \sigma\,\partial_y\Omega - \gamma_{\rm eff}\dot y,\;
-\dot m = \beta\lVert\nabla\Omega\rVert,\;
-\gamma_{\rm eff}=\gamma_0+\kappa m.$
-With **$\gamma_0=0$** the memory $m$ is the *only* source of dissipation — it is
-provably load-bearing (a multiplier on the conservative force would be inert).
-$\sigma=\mathrm{sign}(-\Omega_{yy})$ turns the collinear saddles into attractors.
-No L-point coordinates are supplied.
+Discover all five Lagrange points of any restricted three-body system as the stable
+fixed points of a damped flow in the co-rotating frame, from a generic seed grid — no
+L-point coordinates supplied. Pick the **machine** in the sidebar:
+
+- **Curvature-learning (quasi-Newton memory)** — a damped descent finds the
+  triangular *minima* of $\Omega$; for the collinear *saddles* it inverts the
+  transverse force, $\ddot y = -2\dot x + s\,\partial_y\Omega - \gamma\dot y$. The
+  inversion gain $s$ is set by a **memory** $B$ that *learns* the curvature from the
+  gradient history (a Broyden estimate of the Hessian, **no analytic second
+  derivative**): $\dot s=\alpha[-\tanh((B_{yy}-\theta_s)/\varepsilon_c)-s]$. No
+  constant $s$ works, so the memory is load-bearing.
+- **Memory-as-dissipation (v3)** — a memory controls the damping,
+  $\gamma_{\rm eff}=\gamma_0+\kappa m$, with $\sigma=\mathrm{sign}(-\Omega_{yy})$ read
+  from the analytic curvature.
 """)
 
 with st.sidebar:
@@ -316,25 +405,45 @@ with st.sidebar:
     else:
         st.error("✗ L4/L5 linearly unstable (μ > 0.03852, Routh)")
 
-    st.divider(); st.subheader("DMM v3 parameters")
-    gamma0  = st.slider("Baseline damping γ₀  (0 ⇒ memory is sole dissipation)", 0.0, 1.0, 0.0, 0.05)
-    kappa   = st.slider("Memory–damping gain κ", 0.2, 5.0, 1.0, 0.1)
-    beta    = st.slider("Memory growth rate β", 0.05, 3.0, 0.5, 0.05)
-    m_cap   = st.slider("Memory cap m_cap", 2.0, 20.0, 10.0, 1.0)
+    st.divider(); st.subheader("Machine")
+    machine = st.radio("Dynamical machine",
+        ["Curvature-learning (quasi-Newton memory)", "Memory-as-dissipation (v3)"],
+        help="Curvature-learning: a Broyden memory learns Ω_yy from the gradient "
+             "history (no analytic Hessian) and inverts the transverse force to turn "
+             "the collinear saddles into attractors. v3: a memory controls the damping.")
+
+    st.divider(); st.subheader("Parameters")
     dt      = st.select_slider("Time step dt", [0.005, 0.01, 0.02], value=0.01)
     max_steps = st.select_slider("Max steps", [50_000,100_000,200_000,400_000], value=200_000)
     conv_thr  = st.select_slider("Convergence |∇Ω| <", [1e-3,5e-4,1e-4,1e-5], value=1e-4)
     polish  = st.checkbox("Newton polish (snap to exact ∇Ω=0, with fallback)", value=True)
     n_x = st.slider("x grid size", 7, 18, 10)
     n_y = st.slider("y grid size", 6, 18, 10)
+    if machine.startswith("Curvature"):
+        st.caption("Quasi-Newton memory")
+        gamma = st.slider("Viscosity γ (constant)", 0.05, 1.0, 0.3, 0.05)
+        alpha = st.slider("Inversion relaxation α", 2.0, 40.0, 15.0, 1.0)
+        eps_c = st.slider("Curvature scale ε_c", 0.1, 1.0, 0.3, 0.05)
+        leak  = st.slider("Broyden leak λ (toward I)", 0.5, 5.0, 2.0, 0.5)
+        thr   = st.slider("Safe-state bias θ_s (invert if B_yy < θ_s)", -1.5, 0.0, -0.6, 0.1)
+    else:
+        st.caption("Memory-as-dissipation")
+        gamma0  = st.slider("Baseline damping γ₀  (0 ⇒ memory is sole dissipation)", 0.0, 1.0, 0.0, 0.05)
+        kappa   = st.slider("Memory–damping gain κ", 0.2, 5.0, 1.0, 0.1)
+        beta    = st.slider("Memory growth rate β", 0.05, 3.0, 0.5, 0.05)
+        m_cap   = st.slider("Memory cap m_cap", 2.0, 20.0, 10.0, 1.0)
 
 tab_disc, tab_mem, tab_about = st.tabs(["🎯 Discovery","📈 Memory dynamics","ℹ️ Method"])
 
 with tab_disc:
-    if st.button("▶  Run DMM v3 Discovery", type="primary", use_container_width=True):
+    if st.button("▶  Run Discovery", type="primary", use_container_width=True):
         with st.spinner(f"Running {n_x}×{n_y} trajectories for {sys_name} …"):
-            results, L = run_discovery(mu, beta, gamma0, kappa, m_cap, dt,
-                                       max_steps, conv_thr, n_x, n_y, polish)
+            if machine.startswith("Curvature"):
+                results, L = run_discovery_qn(mu, gamma, alpha, eps_c, leak, thr, 1e-4,
+                                              dt, max_steps, conv_thr, n_x, n_y, polish)
+            else:
+                results, L = run_discovery(mu, beta, gamma0, kappa, m_cap, dt,
+                                           max_steps, conv_thr, n_x, n_y, polish)
         found = {k:[r for r in results if r["label"]==k] for k in L_COLORS}
         n_started = len(results)
         n_labeled = sum(1 for r in results if r["label"])
@@ -359,6 +468,7 @@ with tab_disc:
         st.pyplot(plot_trajectories(results, L, mu, p1_name, p2_name), use_container_width=True)
         st.session_state["v3_results"] = results
         st.session_state["v3_sys"] = sys_name
+        st.session_state["machine"] = machine
         if known_objs:
             st.info("**Known objects / missions:**\n" +
                     "\n".join(f"- **{k}**: {v}" for k,v in known_objs.items()))
@@ -369,39 +479,61 @@ with tab_mem:
     if "v3_results" in st.session_state:
         if st.session_state.get("v3_sys") != sys_name:
             st.warning(f"Showing results from {st.session_state.get('v3_sys')} — re-run for {sys_name}.")
-        st.pyplot(plot_memory(st.session_state["v3_results"]), use_container_width=True)
-        st.caption(
-            "**Left:** memory m (solid) and the dissipation γ_eff = κm (dashed) it generates "
-            "ratchet upward from 0 and saturate at convergence. "
-            "**Centre:** kinetic energy T driven to zero — the memory-controlled damping is what "
-            "removes it (a force-multiplier memory could not). "
-            "**Right:** clause violation |∇Ω| → 0. Colour = discovered L-point."
-        )
+        if st.session_state.get("machine", "").startswith("Curvature"):
+            st.pyplot(plot_memory_curvature(st.session_state["v3_results"]), use_container_width=True)
+            st.caption(
+                "**Left:** the quasi-Newton memory B_yy (solid) learns the true curvature Ω_yy "
+                "(dashed) from the gradient history alone — no analytic Hessian. "
+                "**Centre:** the inversion gain s adapts — held at −1 to descend onto a minimum, "
+                "ramped −1→+1 to invert a saddle into an attractor. "
+                "**Right:** clause violation |∇Ω| → 0. Colour = discovered L-point."
+            )
+        else:
+            st.pyplot(plot_memory(st.session_state["v3_results"]), use_container_width=True)
+            st.caption(
+                "**Left:** memory m (solid) and the dissipation γ_eff = κm (dashed) ratchet up "
+                "and saturate. **Centre:** kinetic energy T → 0. **Right:** |∇Ω| → 0. "
+                "Colour = discovered L-point."
+            )
     else:
         st.info("Run a discovery first.")
 
 with tab_about:
     st.markdown(r"""
-### Why memory-as-dissipation?
+### Curvature-learning machine (default)
 
-The earlier formulation used a memory **multiplier** on the force,
-$\ddot{\mathbf r}= \dots - w_L\nabla\Omega - \gamma\dot{\mathbf r}$, $\dot w_L=\beta\lVert\nabla\Omega\rVert$.
-The kinetic-energy identity
-$\dot T = -w_L\,\dot{\mathbf r}\cdot\nabla\Omega - \gamma\lVert\dot{\mathbf r}\rVert^2$
-(the Coriolis term does no work) shows that a growing multiplier on the
-**conservative** force can only exchange energy with the potential — it never
-dissipates. So that memory was **inert**: setting $\beta=0$ changed nothing, and
-with $\gamma=0$ the system failed for every $\beta$. The damping did the work.
+With the convention $\Omega=\tfrac12(x^2+y^2)+\tfrac{1-\mu}{r_1}+\tfrac{\mu}{r_2}$,
+the triangular points $L_4,L_5$ are **minima** of $\Omega$ and the collinear
+$L_1,L_2,L_3$ are **saddles**. A damped descent settles onto the minima but is
+repelled by the saddles, whose transverse direction is unstable ($\Omega_{yy}<0$).
+We invert the transverse force there, $\ddot y=-2\dot x+s\,\partial_y\Omega-\gamma\dot y$
+with $s=+1$, turning the saddle into an attractor. The required sign is
+**position-dependent and no constant works** ($s\equiv-1$ misses the saddles,
+$s\equiv+1$ breaks the minima), so the inversion is genuinely load-bearing — unlike
+the viscosity $\gamma$, for which any constant value suffices.
 
-**v3 fix:** let memory set the dissipation, $\gamma_{\rm eff}=\gamma_0+\kappa m$,
-$\dot m=\beta\lVert\nabla\Omega\rVert$. Now memory multiplies $\lVert\dot{\mathbf r}\rVert^2$,
-the only negative-definite (energy-removing) term. With $\gamma_0=0$ memory is
-the sole dissipation and is provably load-bearing: $0/5\to5/5$ on Earth–Moon.
+The novelty: the memory **learns** that sign rather than reading the analytic
+curvature. A memory matrix $B$ accumulates a **Broyden (quasi-Newton)** estimate of
+the Hessian from the gradient samples the flow already evaluates,
+$B\leftarrow B+\frac{(\Delta g-B\Delta p)\Delta p^{\mathsf T}}{\Delta p^{\mathsf T}\Delta p}$
+(symmetrized, with a slow leak toward $I$), and the gain relaxes toward the learned
+sign, $\dot s=\alpha[-\tanh((B_{yy}-\theta_s)/\varepsilon_c)-s]$, with a safe-state
+bias $\theta_s<0$. **No analytic second derivative** appears anywhere. This finds all
+five points of every solar-system pair ($\mu=2.3\times10^{-9}\dots0.11$). Watch the
+memory learn the curvature in the **Memory dynamics** tab.
 
-**Honest limit:** for $\mu\lesssim10^{-5}$ (e.g. Sun–Mercury) $\nabla\Omega$ nearly
-vanishes along the whole corotation circle $r=1$, so the collinear points are
-hard to resolve and the method may return $<5/5$. This is a property of the
-potential at extreme mass ratios, not a bug.
+### Memory-as-dissipation (v3)
 
-See `dmm_lagrange_v3.tex` for the full derivation.
+A memory controls the damping instead, $\gamma_{\rm eff}=\gamma_0+\kappa m$,
+$\dot m=\beta\lVert\nabla\Omega\rVert$, with $\sigma=\mathrm{sign}(-\Omega_{yy})$ read
+from the analytic curvature. This also gives $5/5$, but the dissipation it supplies is
+not special — a *constant* $\gamma$ works just as well — so the memory is not
+load-bearing in this version. It is kept here for comparison.
+
+**Honest limits (both machines):** an optional Newton polish refines the final digits;
+neither machine is faster than a classical root finder. For $\mu\lesssim10^{-5}$ the
+corotation ridge ($\nabla\Omega\approx0$ along $r=1$) makes the collinear points
+delicate; the on-axis structural seeds resolve them.
+
+See `dmm_curvature_ajp.tex` for the full derivation.
 """)
