@@ -94,7 +94,7 @@ def test_effective_potential_formula():
 
 def test_jacobi_constant_jupiter_l4():
     """Jacobi constant is conserved to relative < 1e-6 over 200 yr at dt=0.01 yr.
-    (Manuscript dmm_lagrange_ajp.tex states ~1e-8; we assert the looser 1e-6
+    (Manuscript dmm_lagrange_stability.tex states ~1e-8; we assert the looser 1e-6
     so the test is robust across machines/scipy versions while still catching
     any real integrator regression.)"""
     r0, v0 = N.seed_lpoint("Jupiter", "L4", t0=0.0)
