@@ -2,7 +2,7 @@
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://cibt6y78bubnrhjmev3nbt.streamlit.app)
 
-👉 **Live app**: [cibt6y78bubnrhjmev3nbt.streamlit.app](https://cibt6y78bubnrhjmev3nbt.streamlit.app)
+👉 **Live app**: https://digitalmemcomputing-wk2up868itbfjlxggbfyzo.streamlit.app
 
 A MemComputing machine that discovers **all five Lagrange points of *every* two-body
 system in the solar system** from a generic grid, with no solution coordinates
