@@ -372,6 +372,47 @@ Pluto--Charon     & $1.1\times10^{-1}$ & $5/5$ & no\\
 \end{tabular}
 \end{table}
 
+\subsection{The memory is the active ingredient}\label{sec:ablation}
+
+A natural question is whether the memory degree of freedom is essential or merely
+decorative---whether the equilibria are in fact found by the curvature-adaptive
+sign of the force, by the optional Newton refinement, or by the seed grid alone.
+We answer it by ablation, toggling two switches on the \emph{same} machine and
+grid: the memory--damping gain $\kappa$ and the Newton refinement. Setting
+$\kappa=0$ makes $\gamma_{\rm eff}=\gamma_0+\kappa m$ vanish identically (recall
+$\gamma_0=0$), so the memory is switched off and the flow carries \emph{no}
+dissipation. Table~\ref{tab:ablation} reports, for each setting, how many of the
+twenty-three systems return all five points.
+
+Two conclusions follow. First, the memory is \emph{necessary}: with $\kappa=0$ the
+undamped trajectories oscillate without settling, and only $15$ of $23$ systems
+are resolved---eight fail, including the well-behaved Earth--Moon and Sun--Jupiter
+pairs, which drop to $3/5$ (losing $L_1,L_2$). This persists at the full step
+budget $N_{\max}=2\times10^5$, so it is not an artifact of truncating the
+integration. Second, the memory is \emph{sufficient on its own}: with the memory
+on but the Newton refinement \emph{disabled}, all twenty-three systems still
+return $5/5$. It is the memory-controlled dissipation, not the refinement, that
+drives the trajectories onto the equilibria; the Newton step merely polishes the
+already-located points to machine precision.
+
+\begin{table}[ht]
+\centering
+\caption{Ablation on the same machine and seed grid: number of the 23 systems for
+which all five Lagrange points are found. Setting $\kappa=0$ switches the memory
+off, and with $\gamma_0=0$ removes all dissipation.}
+\label{tab:ablation}
+\begin{tabular}{llc}
+\toprule
+Memory & Newton refinement & Systems at $5/5$\\
+\midrule
+on ($\kappa=1$)  & on  & $23/23$\\
+on ($\kappa=1$)  & off & $23/23$\\
+off ($\kappa=0$) & on  & $15/23$\\
+off ($\kappa=0$) & off & $14/23$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
 %=============================================================================
 \section{Advantages over existing methods}\label{sec:advantages}
 %=============================================================================
