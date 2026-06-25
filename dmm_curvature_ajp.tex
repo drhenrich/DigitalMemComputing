@@ -227,23 +227,24 @@ already evaluates the gradient $\mathbf g=\nabla\Omega$ at every step, and the
 Jacobian of $\mathbf g$ is the Hessian. A memory matrix $B$ therefore accumulates a
 \emph{quasi-Newton} estimate of the Hessian from successive gradient samples. With
 $\Delta\mathbf p=\mathbf p_k-\mathbf p_{k-1}$ and
-$\Delta\mathbf g=\mathbf g_k-\mathbf g_{k-1}$, each step corrects $B$ by a Broyden
-secant assimilation~\cite{broyden1965,nocedal2006} and relaxes it slowly toward the
-identity,
+$\Delta\mathbf g=\mathbf g_k-\mathbf g_{k-1}$, the step from $B_k$ to $B_{k+1}$ adds a
+Broyden secant assimilation~\cite{broyden1965,nocedal2006} and a slow relaxation
+toward the identity,
 \begin{equation}
-  B \;\leftarrow\; B
-    +\frac{(\Delta\mathbf g-B\,\Delta\mathbf p)\,\Delta\mathbf p^{\mathsf T}}
+  B_{k+1}=B_k
+    +\frac{(\Delta\mathbf g-B_k\,\Delta\mathbf p)\,\Delta\mathbf p^{\mathsf T}}
           {\Delta\mathbf p^{\mathsf T}\Delta\mathbf p}
-    +\lambda\,(\mathbb 1-B)\,\Delta t,
-  \qquad B\leftarrow\tfrac12\bigl(B+B^{\mathsf T}\bigr),
+    +\lambda\,(\mathbb 1-B_k)\,\Delta t ,
   \label{eq:broyden}
 \end{equation}
-applied only where $\lVert\Delta\mathbf p\rVert$ exceeds a small gate (otherwise $B$
-is held), the symmetrization imposing the symmetry of a Hessian. The two added terms
+applied only where $\lVert\Delta\mathbf p\rVert$ exceeds a small gate (otherwise
+$B_{k+1}=B_k$); the right-hand side is then symmetrized to respect the symmetry of a
+Hessian. The two added terms
 are of different character. The first is the secant correction, which enforces
 $B\,\Delta\mathbf p=\Delta\mathbf g$ along the current step: a full per-step
 assimilation whose size is set by how wrong $B$ is and is \emph{independent} of
-$\Delta t$ (Broyden is a discrete iteration, with no $\Delta t\to0$ limit). The second
+$\Delta t$ (Broyden is a discrete iteration, with no continuum limit as $\Delta t$
+shrinks to zero). The second
 is a genuine rate---a slow leak toward the identity. Because the curvature varies
 across the landscape, this leak gives $B$ a finite memory horizon $\sim1/\lambda$, so
 it tracks the \emph{local} curvature rather than a path-history average, and relaxing
@@ -278,7 +279,7 @@ This protects the minima and the small-$\mu$ corotation ridge (where
 $\lVert\nabla\Omega\rVert\approx0$ along $r=1$ and the curvature estimate hovers
 near zero) while still inverting at genuine saddles, where $B_{yy}$ is strongly
 negative. The bias is needed because the damped rotating frame is not symmetric
-under $y\to-y$---the Coriolis term breaks it---so $L_4$ and $L_5$ have slightly
+under sign reversal of $y$---the Coriolis term breaks it---so $L_4$ and $L_5$ have slightly
 different basins; biasing toward the safe state treats both robustly.
 
 Figure~\ref{fig:memory} shows the memory at work on two Earth--Moon trajectories. On
@@ -295,12 +296,12 @@ the two cases.
   \caption{%
     The memory learns the curvature. Two Earth--Moon trajectories of the same
     Hessian-free machine. \textbf{(a),(b)} phase-plane paths coloured by the
-    inversion gain $s$: red ($s\to+1$) on the approach to the collinear saddle
-    $L_1$, blue ($s\to-1$) on the approach to the triangular minimum $L_4$.
+    inversion gain $s$: red ($s=+1$) on the approach to the collinear saddle
+    $L_1$, blue ($s=-1$) on the approach to the triangular minimum $L_4$.
     \textbf{(c)} the quasi-Newton estimate $B_{yy}$ (solid) tracks the true
     $\Omega_{yy}$ (dashed) from gradient history alone---negative at the saddle,
     positive at the minimum. \textbf{(d)} the gain $s$ responds to what was learned:
-    $-1\to+1$ at the saddle, held at $-1$ at the minimum, while $\lVert\nabla\Omega
+    from $-1$ to $+1$ at the saddle, held at $-1$ at the minimum, while $\lVert\nabla\Omega
     \rVert$ (faint) decays to convergence.}
   \label{fig:memory}
 \end{figure*}
@@ -317,7 +318,7 @@ The equations are advanced by explicit Euler with fixed step $\Delta t$; a guard
 $\varepsilon=10^{-9}$ is added to $r_1,r_2$. The memory is initialized at
 $B=\mathbb 1$, $s=-1$ (the safe descending state), and the Broyden
 update~\eqref{eq:broyden} is applied only when $\lVert\Delta\mathbf p\rVert$ exceeds
-a small gate, so that near a fixed point---where $\Delta\mathbf p\to0$---the estimate
+a small gate, so that near a fixed point---where $\Delta\mathbf p$ vanishes---the estimate
 simply freezes. A trajectory stops when $\lVert\nabla\Omega\rVert<\theta$, when it
 leaves the disk $\lVert\mathbf r\rVert>12$, or after $N_{\max}$ steps.
 
