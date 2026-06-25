@@ -234,7 +234,7 @@ toward the identity,
   B_{k+1}=B_k
     +\frac{(\Delta\mathbf g-B_k\,\Delta\mathbf p)\,\Delta\mathbf p^{\mathsf T}}
           {\Delta\mathbf p^{\mathsf T}\Delta\mathbf p}
-    +\lambda\,(\mathbb{I}-B_k)\,\Delta t ,
+    +\lambda\,(\mathbf{1}-B_k)\,\Delta t ,
   \label{eq:broyden}
 \end{equation}
 applied only where $\lVert\Delta\mathbf p\rVert$ exceeds a small gate (otherwise
@@ -248,8 +248,8 @@ shrinks to zero). The second
 is a genuine rate---a slow leak toward the identity. Because the curvature varies
 across the landscape, this leak gives $B$ a finite memory horizon $\sim1/\lambda$, so
 it tracks the \emph{local} curvature rather than a path-history average, and relaxing
-toward $\mathbb{I}$ supplies a safe default ($B_{yy}=1$) where the step is too small to
-measure. Equivalently, $B$ follows a continuous leak $\dot B=-\lambda(B-\mathbb{I})$
+toward $\mathbf{1}$ supplies a safe default ($B_{yy}=1$) where the step is too small to
+measure. Equivalently, $B$ follows a continuous leak $\dot B=-\lambda(B-\mathbf{1})$
 punctuated by discrete secant measurements---the structure of a continuous--discrete
 (Kalman-type) estimator.
 The estimated transverse curvature is the component $B_{yy}$, and the inversion gain
@@ -316,7 +316,7 @@ code~\cite{github2026}; the parameters are collected in Table~\ref{tab:params}.
 \paragraph{Integration.}
 The equations are advanced by explicit Euler with fixed step $\Delta t$; a guard
 $\varepsilon=10^{-9}$ is added to $r_1,r_2$. The memory is initialized at
-$B=\mathbb{I}$, $s=-1$ (the safe descending state), and the Broyden
+$B=\mathbf{1}$, $s=-1$ (the safe descending state), and the Broyden
 update~\eqref{eq:broyden} is applied only when $\lVert\Delta\mathbf p\rVert$ exceeds
 a small gate, so that near a fixed point---where $\Delta\mathbf p$ vanishes---the estimate
 simply freezes. A trajectory stops when $\lVert\nabla\Omega\rVert<\theta$, when it
@@ -356,7 +356,7 @@ Symbol & Meaning & Value\\
 $\gamma$ & viscosity (constant) & $0.3$\\
 $\alpha$ & relaxation rate of the gain $s$ & $15$\\
 $\varepsilon_c$ & curvature scale in Eq.~\eqref{eq:sdot} & $0.3$\\
-$\lambda$ & Broyden leak toward $\mathbb{I}$ & $2.0$\\
+$\lambda$ & Broyden leak toward $\mathbf{1}$ & $2.0$\\
 $\theta_s$ & safe-state bias (invert if $B_{yy}<\theta_s$) & $-0.6$\\
 $\lVert\Delta\mathbf p\rVert_{\min}$ & Broyden update gate & $10^{-4}$\\
 $\Delta t$ & Euler time step & $0.01$\\
