@@ -225,23 +225,32 @@ the machine would be handed the very curvature information that distinguishes th
 solutions. We instead let a memory degree of freedom \emph{learn} it. The flow
 already evaluates the gradient $\mathbf g=\nabla\Omega$ at every step, and the
 Jacobian of $\mathbf g$ is the Hessian. A memory matrix $B$ therefore accumulates a
-\emph{quasi-Newton} estimate of the Hessian from successive gradient samples, by the
-Broyden update~\cite{broyden1965,nocedal2006}: with
+\emph{quasi-Newton} estimate of the Hessian from successive gradient samples. With
 $\Delta\mathbf p=\mathbf p_k-\mathbf p_{k-1}$ and
-$\Delta\mathbf g=\mathbf g_k-\mathbf g_{k-1}$,
+$\Delta\mathbf g=\mathbf g_k-\mathbf g_{k-1}$, each step corrects $B$ by a Broyden
+secant assimilation~\cite{broyden1965,nocedal2006} and relaxes it slowly toward the
+identity,
 \begin{equation}
-  B \;\leftarrow\; B+\frac{(\Delta\mathbf g-B\,\Delta\mathbf p)\,
-       \Delta\mathbf p^{\mathsf T}}{\Delta\mathbf p^{\mathsf T}\Delta\mathbf p},
+  B \;\leftarrow\; B
+    +\frac{(\Delta\mathbf g-B\,\Delta\mathbf p)\,\Delta\mathbf p^{\mathsf T}}
+          {\Delta\mathbf p^{\mathsf T}\Delta\mathbf p}
+    +\lambda\,(\mathbb 1-B)\,\Delta t,
   \qquad B\leftarrow\tfrac12\bigl(B+B^{\mathsf T}\bigr),
   \label{eq:broyden}
 \end{equation}
-the symmetrization imposing the symmetry of a Hessian. Because the curvature varies
-across the landscape, $B$ is given a slow leak toward the identity so that it tracks
-the \emph{local} value,
-\begin{equation}
-  B \;\leftarrow\; B+\lambda\,(\mathbb 1-B)\,\Delta t .
-  \label{eq:leak}
-\end{equation}
+applied only where $\lVert\Delta\mathbf p\rVert$ exceeds a small gate (otherwise $B$
+is held), the symmetrization imposing the symmetry of a Hessian. The two added terms
+are of different character. The first is the secant correction, which enforces
+$B\,\Delta\mathbf p=\Delta\mathbf g$ along the current step: a full per-step
+assimilation whose size is set by how wrong $B$ is and is \emph{independent} of
+$\Delta t$ (Broyden is a discrete iteration, with no $\Delta t\to0$ limit). The second
+is a genuine rate---a slow leak toward the identity. Because the curvature varies
+across the landscape, this leak gives $B$ a finite memory horizon $\sim1/\lambda$, so
+it tracks the \emph{local} curvature rather than a path-history average, and relaxing
+toward $\mathbb 1$ supplies a safe default ($B_{yy}=1$) where the step is too small to
+measure. Equivalently, $B$ follows a continuous leak $\dot B=-\lambda(B-\mathbb 1)$
+punctuated by discrete secant measurements---the structure of a continuous--discrete
+(Kalman-type) estimator.
 The estimated transverse curvature is the component $B_{yy}$, and the inversion gain
 is a second memory variable $s\in[-1,1]$ that relaxes toward the learned sign,
 \begin{equation}
@@ -252,7 +261,7 @@ is a second memory variable $s\in[-1,1]$ that relaxes toward the learned sign,
 The augmented phase space is thus $(x,y,\dot x,\dot y,\,s,\,B)$: the relaxed
 mechanical variables plus the memory $(s,B)$. The full machine integrates
 \eqref{eq:flow} with $\gamma$ constant, advancing $B$ by
-\eqref{eq:broyden}--\eqref{eq:leak} and $s$ by \eqref{eq:sdot} at each step. No
+\eqref{eq:broyden} and $s$ by \eqref{eq:sdot} at each step. No
 analytic second derivative appears anywhere in the dynamics; $\Omega_{yy}$ is used
 only, after the fact, to confirm that the learned $B_{yy}$ is correct.
 
