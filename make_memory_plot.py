@@ -48,57 +48,65 @@ def run(mu, start, thr=-0.6, gamma=0.3, alpha=15.0, eps_c=0.3, leak=2.0, dpmin=1
 
 mu = 7.342e22/(5.972e24+7.342e22)
 L = lpoints(mu)
-A = run(mu, L["L1"] + np.array([0.0, 0.05]))     # saddle
-Bt = run(mu, L["L4"] + np.array([0.0, 0.05]))    # triangular
+A  = run(mu, L["L1"] + np.array([0.0, 0.05]))   # saddle
+Bt = run(mu, L["L4"] + np.array([0.0, 0.05]))   # triangular minimum
 C_SAD, C_TRI = "#c0392b", "#2471a3"
 
 fig, ax = plt.subplots(2, 2, figsize=(9.2, 6.4), constrained_layout=True)
 
-# (a) phase-plane trajectory to L1, coloured by s
-def traj_panel(a, H, Lpt, title, seed):
-    pts = np.column_stack([H["x"], H["y"]]).reshape(-1, 1, 2)
+# panels (a) and (b): phase-plane trajectories coloured by s
+def traj_panel(a, H, Lpt, label, seed):
+    pts  = np.column_stack([H["x"], H["y"]]).reshape(-1, 1, 2)
     segs = np.concatenate([pts[:-1], pts[1:]], axis=1)
-    lc = LineCollection(segs, cmap="coolwarm", norm=plt.Normalize(-1, 1), lw=1.3, alpha=0.9)
+    lc   = LineCollection(segs, cmap="coolwarm", norm=plt.Normalize(-1, 1), lw=1.3, alpha=0.9)
     lc.set_array(H["s"][:-1]); a.add_collection(lc)
-    a.plot(*Lpt, "*", color="k", ms=14, zorder=5, label="L-point")
+    a.plot(*Lpt, "*", color="k", ms=14, zorder=5)
     a.plot(*seed, "s", color="0.3", ms=6, zorder=5)
     a.annotate("seed", seed, textcoords="offset points", xytext=(6, 4), fontsize=8)
-    a.set_title(title, fontsize=10); a.set_xlabel("x"); a.set_ylabel("y")
+    # label outside, above panel (left-aligned)
+    a.set_title(label, loc='left', fontsize=11, fontweight='bold', pad=4)
+    a.set_xlabel("x"); a.set_ylabel("y")
     a.autoscale(); a.margins(0.15); a.set_aspect("equal", "datalim")
     return lc
 
-lc = traj_panel(ax[0,0], A, L["L1"], "(a) approach to collinear saddle $L_1$", L["L1"]+np.array([0,0.05]))
-traj_panel(ax[0,1], Bt, L["L4"], "(b) approach to triangular point $L_4$", L["L4"]+np.array([0,0.05]))
+lc = traj_panel(ax[0,0], A,  L["L1"], "(a)", L["L1"] + np.array([0, 0.05]))
+traj_panel(     ax[0,1], Bt, L["L4"], "(b)", L["L4"] + np.array([0, 0.05]))
 cb = fig.colorbar(lc, ax=ax[0,:].tolist(), fraction=0.046, pad=0.02)
 cb.set_label("inversion gain $s$", fontsize=9)
 
-# (c) memory learns the curvature: B_yy (estimate) vs true Omega_yy
+# panel (c): Broyden estimate B_yy tracks true Omega_yy
 c = ax[1,0]
-c.plot(A["t"], A["byy"], color=C_SAD, lw=2, label=r"$B_{yy}$ estimate ($L_1$)")
-c.plot(A["t"], A["oyy"], color=C_SAD, lw=1, ls="--", alpha=0.7, label=r"true $\Omega_{yy}$ ($L_1$)")
-c.plot(Bt["t"], Bt["byy"], color=C_TRI, lw=2, label=r"$B_{yy}$ estimate ($L_4$)")
-c.plot(Bt["t"], Bt["oyy"], color=C_TRI, lw=1, ls="--", alpha=0.7, label=r"true $\Omega_{yy}$ ($L_4$)")
+c.plot(A["t"],  A["byy"],  color=C_SAD, lw=2,      label=r"$B_{yy}$ ($L_1$)")
+c.plot(A["t"],  A["oyy"],  color=C_SAD, lw=1, ls="--", label=r"true $\Omega_{yy}$ ($L_1$)")
+c.plot(Bt["t"], Bt["byy"], color=C_TRI, lw=2,      label=r"$B_{yy}$ ($L_4$)")
+c.plot(Bt["t"], Bt["oyy"], color=C_TRI, lw=1, ls="--", label=r"true $\Omega_{yy}$ ($L_4$)")
 c.axhline(0, color="0.6", lw=0.8)
 c.set_ylim(-7.5, 3.5)
-c.set_title("(c) memory learns the curvature from gradient history", fontsize=10)
-c.set_xlabel("step"); c.set_ylabel(r"$y$-curvature"); c.legend(fontsize=7, ncol=2, loc="lower right")
-c.annotate(r"$B_{yy}\!\to\!\Omega_{yy}<0$ (saddle)", (0.5, 0.18), xycoords="axes fraction",
-           color=C_SAD, fontsize=8)
-c.annotate(r"$B_{yy}\!\to\!\Omega_{yy}>0$ (triangular)", (0.42, 0.86), xycoords="axes fraction",
-           color=C_TRI, fontsize=8)
+# label outside, above panel
+c.set_title("(c)", loc='left', fontsize=11, fontweight='bold', pad=4)
+c.set_xlabel("step"); c.set_ylabel(r"$y$-curvature", fontsize=10)
+c.legend(fontsize=7, ncol=2, loc="lower right")
+# annotations placed in empty regions away from the main curves
+c.annotate(r"$B_{yy}\to\Omega_{yy}<0$  (saddle)",
+           (0.50, 0.08), xycoords="axes fraction", color=C_SAD, fontsize=8)
+c.annotate(r"$B_{yy}\to\Omega_{yy}>0$  (triangular)",
+           (0.38, 0.92), xycoords="axes fraction", color=C_TRI, fontsize=8)
 
-# (d) inversion gain s ramps adaptively; |grad Omega| -> 0
-d = ax[1,1]
-d.plot(A["t"], A["s"], color=C_SAD, lw=2, label=r"$s$ at $L_1$ (saddle): $-1\to+1$")
-d.plot(Bt["t"], Bt["s"], color=C_TRI, lw=2, label=r"$s$ at $L_4$ (triangular): $\to-1$")
-d.axhline(1, color="0.7", lw=0.7, ls=":"); d.axhline(-1, color="0.7", lw=0.7, ls=":")
-d.set_ylim(-1.15, 1.15)
-d.set_title("(d) adaptive inversion gain $s$", fontsize=10)
-d.set_xlabel("step"); d.set_ylabel("$s$"); d.legend(fontsize=8, loc="center right")
+# panel (d): s ramps adaptively; gradient decays shown as dotted lines
+d  = ax[1,1]
 dd = d.twinx()
-dd.semilogy(A["t"], A["gn"], color=C_SAD, lw=0.9, alpha=0.4)
-dd.semilogy(Bt["t"], Bt["gn"], color=C_TRI, lw=0.9, alpha=0.4)
-dd.set_ylabel(r"$|\nabla\Omega|$ (faint)", fontsize=8)
+# gradient: dotted, same colours, fully opaque (no alpha fading)
+dd.semilogy(A["t"],  A["gn"],  color=C_SAD, lw=1.1, ls=":", zorder=1)
+dd.semilogy(Bt["t"], Bt["gn"], color=C_TRI, lw=1.1, ls=":", zorder=1)
+dd.set_ylabel(r"$\|\nabla\Omega\|$", fontsize=10)
+# s curves on top (higher zorder, thicker)
+d.plot(A["t"],  A["s"],  color=C_SAD, lw=2.2, label=r"$s$ ($L_1$ saddle): $-1\to+1$",    zorder=3)
+d.plot(Bt["t"], Bt["s"], color=C_TRI, lw=2.2, label=r"$s$ ($L_4$ triangular): stays $-1$", zorder=3)
+d.set_ylim(-1.15, 1.15)
+# label outside, above panel
+d.set_title("(d)", loc='left', fontsize=11, fontweight='bold', pad=4)
+d.set_xlabel("step"); d.set_ylabel("$s$", fontsize=11)
+d.legend(fontsize=8, loc="upper right", bbox_to_anchor=(0.98, 0.94))
 
 fig.savefig("fig_memory_curvature.pdf")
 fig.savefig("fig_memory_curvature.png", dpi=140)
