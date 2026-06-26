@@ -1,6 +1,6 @@
 # A curvature-learning MemComputing machine for the Lagrange points
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://digitalmemcomputing-wk2up868itbfjlxggbfyzo.streamlit.app)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://digitalmemcomputing.streamlit.app)
 
 👉 **Live app**: https://digitalmemcomputing-wk2up868itbfjlxggbfyzo.streamlit.app
 
