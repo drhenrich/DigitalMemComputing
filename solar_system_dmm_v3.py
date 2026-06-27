@@ -530,10 +530,11 @@ from the analytic curvature. This also gives $5/5$, but the dissipation it suppl
 not special — a *constant* $\gamma$ works just as well — so the memory is not
 load-bearing in this version. It is kept here for comparison.
 
-**Honest limits (both machines):** an optional Newton polish refines the final digits;
-neither machine is faster than a classical root finder. For $\mu\lesssim10^{-5}$ the
-corotation ridge ($\nabla\Omega\approx0$ along $r=1$) makes the collinear points
-delicate; the on-axis structural seeds resolve them.
+**Advantages and limitations (both machines):** neither machine is faster than a
+classical root finder. However, the latter requires prior knowledge of the Lagrange
+points' positions. The MemComputing machine does not: it discovers all five points
+simultaneously from a generic grid of initial conditions, treating saddles and minima
+on equal footing — no bracket per point, no prior knowledge of which points are saddles.
 
 See `dmm_curvature_ajp.tex` for the full derivation.
 """)
